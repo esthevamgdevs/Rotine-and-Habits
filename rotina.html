@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rotina">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Rotina — hábitos, rotinas e tarefas</title>
+<style>
+  :root{
+    --paper:#F7F5F0;
+    --card:#FFFFFF;
+    --ink:#24272B;
+    --ink-soft:#5B5B57;
+    --muted:#9C9689;
+    --line:#E3DFD5;
+    --pine:#2F5D50;
+    --pine-soft:#E4ECE9;
+    --ochre:#C97A3D;
+    --ochre-soft:#F5E4D3;
+    --danger:#B4432D;
+    --danger-soft:#F6E0DA;
+    --radius:12px;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  body{padding-bottom:env(safe-area-inset-bottom);}
+  #app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+  header{padding:22px 20px 0 20px;}
+  .eyebrow{display:flex;align-items:center;justify-content:space-between;}
+  .eyebrow .date{font-family:var(--serif);font-size:15px;letter-spacing:.02em;color:var(--ink-soft);text-transform:capitalize;}
+  .eyebrow .right{display:flex;align-items:center;gap:10px;}
+  .sync-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);transition:background .3s;}
+  .sync-dot.off{background:var(--line);}
+  .sync-dot.syncing{background:var(--ochre);animation:pulse 1s infinite;}
+  .sync-dot.synced{background:var(--pine);}
+  .sync-dot.error{background:var(--danger);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .gear{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;color:var(--ink-soft);}
+  .gear:active{transform:scale(.94);}
+
+  h1{font-family:var(--serif);font-weight:700;font-size:28px;margin:10px 0 18px 0;letter-spacing:-.01em;}
+
+  nav.tabs{display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--line);}
+  nav.tabs button{flex:1;background:none;border:none;padding:10px 4px 12px 4px;font-family:var(--sans);font-size:14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:600;}
+  nav.tabs button.active{color:var(--ink);border-bottom-color:var(--ochre);}
+
+  main{flex:1;padding:18px 20px 40px 20px;}
+
+  .banner{background:var(--ochre-soft);border:1px solid #e6c9a8;border-radius:var(--radius);padding:12px 14px;font-size:13px;color:#7a4a1f;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .banner button{background:var(--ink);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+
+  .row-add{display:flex;gap:8px;margin-bottom:16px;}
+  .row-add input[type=text]{flex:1;}
+  input[type=text],input[type=date],textarea{font-family:var(--sans);font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);width:100%;}
+  input[type=text]:focus,input[type=date]:focus,textarea:focus{outline:none;border-color:var(--pine);}
+  textarea{resize:vertical;min-height:70px;font-family:var(--sans);}
+  button.primary{background:var(--pine);color:#fff;border:none;border-radius:9px;padding:10px 16px;font-size:14.5px;font-weight:600;cursor:pointer;}
+  button.primary:active{transform:scale(.97);}
+  button.ghost{background:none;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:14px;color:var(--ink-soft);cursor:pointer;}
+
+  .empty{text-align:center;padding:50px 10px;color:var(--muted);font-size:14.5px;}
+  .empty .icon{font-size:26px;display:block;margin-bottom:8px;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+  .card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .card-title{font-size:15.5px;font-weight:600;}
+  .icon-btn{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px;}
+
+  /* punch card dots for habits */
+  .punch{display:flex;gap:7px;margin-top:12px;}
+  .punch .dot-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .punch .dow{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .dot{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);background:var(--paper);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;}
+  .dot.done{background:var(--pine);border-color:var(--pine);color:#fff;}
+  .dot.today{box-shadow:0 0 0 2px var(--ochre-soft),0 0 0 3.5px var(--ochre);}
+  .streak{font-size:12.5px;color:var(--ochre);font-weight:700;white-space:nowrap;}
+
+  /* routines */
+  .progress-bar{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin:10px 0 12px 0;}
+  .progress-bar > div{height:100%;background:var(--pine);transition:width .25s;}
+  .item-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+  .checkbox{width:20px;height:20px;flex:none;border-radius:6px;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:transparent;background:var(--paper);}
+  .checkbox.done{background:var(--pine);border-color:var(--pine);color:#fff;}
+  .item-text{flex:1;font-size:14.5px;}
+  .item-text.done{color:var(--muted);text-decoration:line-through;}
+  .add-item-row{display:flex;gap:8px;margin-top:8px;}
+  .add-item-row input{padding:7px 10px;font-size:14px;}
+
+  .new-form{background:var(--pine-soft);border:1px solid #cfe0da;border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+  .new-form label{font-size:12px;color:var(--ink-soft);display:block;margin:8px 0 4px 0;font-weight:600;}
+  .new-form .actions{display:flex;gap:8px;margin-top:12px;}
+
+  /* tasks */
+  .task-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .task-row:last-child{border-bottom:none;}
+  .task-mid{flex:1;}
+  .task-title{font-size:15px;}
+  .task-title.done{color:var(--muted);text-decoration:line-through;}
+  .task-due{font-size:12px;color:var(--muted);margin-top:2px;}
+  .task-due.overdue{color:var(--danger);font-weight:600;}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(36,39,43,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50;}
+  @media(min-width:640px){.overlay{align-items:center;}}
+  .modal{background:var(--paper);width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:22px 20px calc(24px + env(safe-area-inset-bottom)) 20px;max-height:88vh;overflow:auto;}
+  @media(min-width:640px){.modal{border-radius:16px;}}
+  .modal h2{font-family:var(--serif);font-size:20px;margin:0 0 4px 0;}
+  .modal p.hint{font-size:12.5px;color:var(--muted);line-height:1.5;margin:0 0 16px 0;}
+  .modal label{font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin:12px 0 4px 0;}
+  .modal .actions{display:flex;gap:8px;margin-top:18px;}
+  .status-line{font-size:12.5px;margin-top:10px;color:var(--ink-soft);}
+  .step-note{font-size:12px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-top:14px;line-height:1.55;}
+  .step-note code{background:var(--ochre-soft);padding:1px 5px;border-radius:4px;font-size:11.5px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="eyebrow">
+      <div class="date" id="dateLabel"></div>
+      <div class="right">
+        <div class="sync-dot off" id="syncDot" title="Sincronização"></div>
+        <div class="gear" id="gearBtn">⚙</div>
+      </div>
+    </div>
+    <h1>Rotina</h1>
+    <nav class="tabs">
+      <button data-tab="habitos" class="active">Hábitos</button>
+      <button data-tab="rotinas">Rotinas</button>
+      <button data-tab="tarefas">Tarefas</button>
+    </nav>
+  </header>
+  <main id="content"></main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var VAPID_PUBLIC_KEY = "BMxlwsZ9T4PRWZy6D5z4mEqssWlmxSDJFYrHZ8oDcobuiew8po7n0GQUFQ6zSdYoPQb9mAmqNZOAcz3rkkylIIk";
+
+  function urlBase64ToUint8Array(base64String){
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+    var raw = atob(base64);
+    var out = new Uint8Array(raw.length);
+    for(var i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  // ---------- state ----------
+  var state = { habits: [], routines: [], tasks: [] };
+  var activeTab = "habitos";
+  var syncConfig = null;
+  var supabaseClient = null;
+  var pushTimer = null;
+
+  function uid(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+
+  function todayStr(d){
+    d = d || new Date();
+    var off = d.getTimezoneOffset();
+    var local = new Date(d.getTime() - off*60000);
+    return local.toISOString().slice(0,10);
+  }
+
+  function addDays(dateStr, n){
+    var d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return todayStr(d);
+  }
+
+  function fmtDay(dateStr){
+    var d = new Date(dateStr + "T00:00:00");
+    return ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][d.getDay()];
+  }
+
+  function fmtDue(dateStr){
+    var d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'});
+  }
+
+  // ---------- persistence ----------
+  function loadLocal(){
+    try{
+      var raw = localStorage.getItem('rotina_state');
+      if(raw) state = JSON.parse(raw);
+    }catch(e){ console.error(e); }
+    try{
+      var rawSync = localStorage.getItem('rotina_sync');
+      if(rawSync) syncConfig = JSON.parse(rawSync);
+    }catch(e){ console.error(e); }
+  }
+
+  function saveLocal(){
+    localStorage.setItem('rotina_state', JSON.stringify(state));
+  }
+
+  function mutate(){
+    saveLocal();
+    schedulePush();
+    render();
+  }
+
+  // ---------- sync (supabase, optional) ----------
+  function setSyncDot(status){
+    var el = document.getElementById('syncDot');
+    el.className = 'sync-dot ' + status;
+    var titles = {off:'Sincronização desligada', syncing:'Sincronizando…', synced:'Sincronizado', error:'Erro de sincronização'};
+    el.title = titles[status] || '';
+  }
+
+  function initSync(){
+    if(!syncConfig || !syncConfig.url || !syncConfig.key || !syncConfig.room){
+      setSyncDot('off');
+      return;
+    }
+    try{
+      supabaseClient = supabase.createClient(syncConfig.url, syncConfig.key);
+    }catch(e){
+      console.error(e); setSyncDot('error'); return;
+    }
+    setSyncDot('syncing');
+    pullRemote().then(subscribeRealtime);
+  }
+
+  function pullRemote(){
+    return supabaseClient.from('app_state').select('data,updated_at').eq('id', syncConfig.room).maybeSingle()
+      .then(function(res){
+        if(res.error){ console.error(res.error); setSyncDot('error'); return; }
+        if(res.data && res.data.data){
+          var remoteStr = JSON.stringify(res.data.data);
+          var localStr = JSON.stringify(state);
+          if(remoteStr !== localStr){
+            state = res.data.data;
+            saveLocal();
+            render();
+          }
+          setSyncDot('synced');
+        } else {
+          return pushRemote();
+        }
+      })
+      .catch(function(e){ console.error(e); setSyncDot('error'); });
+  }
+
+  function schedulePush(){
+    if(!syncConfig || !supabaseClient) return;
+    setSyncDot('syncing');
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushRemote, 600);
+  }
+
+  function pushRemote(){
+    if(!supabaseClient) return;
+    return supabaseClient.from('app_state').upsert({ id: syncConfig.room, data: state, updated_at: new Date().toISOString() })
+      .then(function(res){
+        if(res.error){ console.error(res.error); setSyncDot('error'); }
+        else setSyncDot('synced');
+      });
+  }
+
+  function subscribeRealtime(){
+    supabaseClient.channel('room-' + syncConfig.room)
+      .on('postgres_changes', { event:'*', schema:'public', table:'app_state', filter: 'id=eq.' + syncConfig.room }, function(payload){
+        var incoming = payload.new && payload.new.data;
+        if(!incoming) return;
+        if(JSON.stringify(incoming) !== JSON.stringify(state)){
+          state = incoming;
+          saveLocal();
+          render();
+          setSyncDot('synced');
+        }
+      })
+      .subscribe();
+  }
+
+  // ---------- push notifications ----------
+  function setPushStatus(text){
+    var elx = document.getElementById('pushStatus');
+    if(elx) elx.textContent = text;
+  }
+
+  function registerServiceWorker(){
+    if(!('serviceWorker' in navigator)) return Promise.reject('sem suporte a service worker');
+    return navigator.serviceWorker.register('./service-worker.js');
+  }
+
+  function enablePush(){
+    if(!syncConfig || !syncConfig.room){
+      setPushStatus('Configure e salve a sincronização primeiro (precisa do código do espaço).');
+      return;
+    }
+    if(!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)){
+      setPushStatus('Este navegador não suporta notificações aqui. No iPhone, adicione o app à Tela de Início e abra por lá antes de ativar.');
+      return;
+    }
+    setPushStatus('Pedindo permissão…');
+    Notification.requestPermission().then(function(perm){
+      if(perm !== 'granted'){ setPushStatus('Permissão não concedida.'); return; }
+      registerServiceWorker().then(function(reg){
+        return reg.pushManager.getSubscription().then(function(existing){
+          if(existing) return existing;
+          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+        });
+      }).then(function(sub){
+        if(!supabaseClient){ setPushStatus('Configure e salve a sincronização primeiro.'); return; }
+        var subJson = sub.toJSON();
+        return supabaseClient.from('push_subscriptions').upsert(
+          { endpoint: subJson.endpoint, room: syncConfig.room, subscription: subJson },
+          { onConflict: 'endpoint' }
+        );
+      }).then(function(res){
+        if(res && res.error){ setPushStatus('Erro ao salvar inscrição: ' + res.error.message); }
+        else if(res) setPushStatus('Notificações ativadas neste aparelho ✓');
+      }).catch(function(e){ console.error(e); setPushStatus('Erro: ' + e); });
+    });
+  }
+
+  // ---------- habits ----------
+  function streakFor(habit){
+    var count = 0;
+    var d = new Date();
+    var ds = todayStr(d);
+    if(!habit.completions[ds]){ d.setDate(d.getDate()-1); }
+    while(true){
+      var s = todayStr(d);
+      if(habit.completions[s]){ count++; d.setDate(d.getDate()-1); } else break;
+    }
+    return count;
+  }
+
+  function last7(){
+    var arr = [];
+    for(var i=6;i>=0;i--) arr.push(addDays(todayStr(), -i));
+    return arr;
+  }
+
+  function toggleHabitDay(habitId, dateStr){
+    var h = state.habits.find(function(x){return x.id===habitId;});
+    if(!h) return;
+    if(h.completions[dateStr]) delete h.completions[dateStr];
+    else h.completions[dateStr] = true;
+    mutate();
+  }
+
+  function addHabit(name){
+    name = name.trim();
+    if(!name) return;
+    state.habits.push({ id: uid(), name: name, completions: {} });
+    mutate();
+  }
+
+  function deleteHabit(id){
+    if(!confirm('Remover este hábito e todo o histórico?')) return;
+    state.habits = state.habits.filter(function(h){return h.id!==id;});
+    mutate();
+  }
+
+  // ---------- routines ----------
+  function addRoutine(name, itemsText){
+    name = name.trim();
+    if(!name) return;
+    var items = itemsText.split('\n').map(function(t){return t.trim();}).filter(Boolean).map(function(t){return {id: uid(), text: t};});
+    state.routines.push({ id: uid(), name: name, items: items, completions: {} });
+    mutate();
+  }
+
+  function deleteRoutine(id){
+    if(!confirm('Remover esta rotina?')) return;
+    state.routines = state.routines.filter(function(r){return r.id!==id;});
+    mutate();
+  }
+
+  function addRoutineItem(routineId, text){
+    text = text.trim();
+    if(!text) return;
+    var r = state.routines.find(function(x){return x.id===routineId;});
+    if(!r) return;
+    r.items.push({ id: uid(), text: text });
+    mutate();
+  }
+
+  function deleteRoutineItem(routineId, itemId){
+    var r = state.routines.find(function(x){return x.id===routineId;});
+    if(!r) return;
+    r.items = r.items.filter(function(i){return i.id!==itemId;});
+    mutate();
+  }
+
+  function toggleRoutineItemToday(routineId, itemId){
+    var r = state.routines.find(function(x){return x.id===routineId;});
+    if(!r) return;
+    var ds = todayStr();
+    var list = r.completions[ds] || [];
+    var idx = list.indexOf(itemId);
+    if(idx>=0) list.splice(idx,1); else list.push(itemId);
+    r.completions[ds] = list;
+    mutate();
+  }
+
+  // ---------- tasks ----------
+  function addTask(title, dueDate){
+    title = title.trim();
+    if(!title) return;
+    state.tasks.push({ id: uid(), title: title, dueDate: dueDate || '', done: false, createdAt: Date.now() });
+    mutate();
+  }
+
+  function toggleTask(id){
+    var t = state.tasks.find(function(x){return x.id===id;});
+    if(!t) return;
+    t.done = !t.done;
+    mutate();
+  }
+
+  function deleteTask(id){
+    state.tasks = state.tasks.filter(function(t){return t.id!==id;});
+    mutate();
+  }
+
+  // ---------- rendering ----------
+  function el(html){
+    var t = document.createElement('template');
+    t.innerHTML = html.trim();
+    return t.content.firstElementChild;
+  }
+
+  function renderHeaderDate(){
+    var d = new Date();
+    document.getElementById('dateLabel').textContent = d.toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
+  }
+
+  function renderHabits(){
+    var c = document.getElementById('content');
+    c.innerHTML = '';
+
+    var addRow = el('<div class="row-add"><input type="text" id="habitInput" placeholder="Novo hábito, ex: beber água"><button class="primary" id="habitAddBtn">+</button></div>');
+    c.appendChild(addRow);
+
+    if(state.habits.length===0){
+      c.appendChild(el('<div class="empty"><span class="icon">◎</span>Nenhum hábito ainda.<br>Adicione o primeiro acima.</div>'));
+    } else {
+      var days = last7();
+      var today = todayStr();
+      state.habits.forEach(function(h){
+        var card = el('<div class="card"></div>');
+        var top = el('<div class="card-top"><div class="card-title"></div><div style="display:flex;align-items:center;gap:10px;"><div class="streak"></div><button class="icon-btn">×</button></div></div>');
+        top.querySelector('.card-title').textContent = h.name;
+        var s = streakFor(h);
+        top.querySelector('.streak').textContent = s>0 ? (s + '🔥') : '';
+        top.querySelector('.icon-btn').addEventListener('click', function(){ deleteHabit(h.id); });
+        card.appendChild(top);
+
+        var punch = el('<div class="punch"></div>');
+        days.forEach(function(ds){
+          var wrap = el('<div class="dot-wrap"><div class="dow"></div></div>');
+          wrap.querySelector('.dow').textContent = fmtDay(ds);
+          var dot = el('<div class="dot">✓</div>');
+          if(h.completions[ds]) dot.classList.add('done');
+          if(ds===today) dot.classList.add('today');
+          dot.addEventListener('click', function(){ toggleHabitDay(h.id, ds); });
+          wrap.appendChild(dot);
+          punch.appendChild(wrap);
+        });
+        card.appendChild(punch);
+        c.appendChild(card);
+      });
+    }
+
+    document.getElementById('habitAddBtn').addEventListener('click', function(){
+      addHabit(document.getElementById('habitInput').value);
+      document.getElementById('habitInput').value='';
+    });
+    document.getElementById('habitInput').addEventListener('keydown', function(e){
+      if(e.key==='Enter'){ addHabit(this.value); this.value=''; }
+    });
+  }
+
+  var showNewRoutineForm = false;
+
+  function renderRoutines(){
+    var c = document.getElementById('content');
+    c.innerHTML = '';
+
+    var newBtnRow = el('<div style="margin-bottom:14px;"><button class="ghost" id="newRoutineBtn">+ Nova rotina</button></div>');
+    c.appendChild(newBtnRow);
+
+    if(showNewRoutineForm){
+      var form = el('<div class="new-form">'+
+        '<label>Nome da rotina</label><input type="text" id="rName" placeholder="ex: Rotina da manhã">'+
+        '<label>Itens (um por linha)</label><textarea id="rItems" placeholder="Arrumar a cama\nTomar café\nRevisar agenda"></textarea>'+
+        '<div class="actions"><button class="primary" id="rSave">Salvar</button><button class="ghost" id="rCancel">Cancelar</button></div>'+
+        '</div>');
+      c.appendChild(form);
+      document.getElementById('rSave').addEventListener('click', function(){
+        addRoutine(document.getElementById('rName').value, document.getElementById('rItems').value);
+        showNewRoutineForm = false;
+        render();
+      });
+      document.getElementById('rCancel').addEventListener('click', function(){ showNewRoutineForm=false; render(); });
+    }
+
+    if(state.routines.length===0 && !showNewRoutineForm){
+      c.appendChild(el('<div class="empty"><span class="icon">☑</span>Nenhuma rotina ainda.<br>Crie uma lista de passos para repetir todo dia.</div>'));
+    }
+
+    var ds = todayStr();
+    state.routines.forEach(function(r){
+      var doneList = r.completions[ds] || [];
+      var pct = r.items.length ? Math.round(100*doneList.length/r.items.length) : 0;
+
+      var card = el('<div class="card"></div>');
+      var top = el('<div class="card-top"><div class="card-title"></div><button class="icon-btn">×</button></div>');
+      top.querySelector('.card-title').textContent = r.name + '  ·  ' + doneList.length + '/' + r.items.length;
+      top.querySelector('.icon-btn').addEventListener('click', function(){ deleteRoutine(r.id); });
+      card.appendChild(top);
+
+      var bar = el('<div class="progress-bar"><div></div></div>');
+      bar.querySelector('div').style.width = pct + '%';
+      card.appendChild(bar);
+
+      r.items.forEach(function(item){
+        var checked = doneList.indexOf(item.id) >= 0;
+        var row = el('<div class="item-row"><div class="checkbox">✓</div><div class="item-text"></div><button class="icon-btn">×</button></div>');
+        var cb = row.querySelector('.checkbox');
+        var txt = row.querySelector('.item-text');
+        txt.textContent = item.text;
+        if(checked){ cb.classList.add('done'); txt.classList.add('done'); }
+        cb.addEventListener('click', function(){ toggleRoutineItemToday(r.id, item.id); });
+        row.querySelector('.icon-btn').addEventListener('click', function(){ deleteRoutineItem(r.id, item.id); });
+        card.appendChild(row);
+      });
+
+      var addItemRow = el('<div class="add-item-row"><input type="text" placeholder="Adicionar passo…"><button class="ghost">+</button></div>');
+      var input = addItemRow.querySelector('input');
+      addItemRow.querySelector('button').addEventListener('click', function(){ addRoutineItem(r.id, input.value); input.value=''; });
+      input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ addRoutineItem(r.id, this.value); this.value=''; } });
+      card.appendChild(addItemRow);
+
+      c.appendChild(card);
+    });
+
+    document.getElementById('newRoutineBtn').addEventListener('click', function(){ showNewRoutineForm = true; render(); });
+  }
+
+  function renderTasks(){
+    var c = document.getElementById('content');
+    c.innerHTML = '';
+
+    var addRow = el('<div class="row-add"><input type="text" id="taskInput" placeholder="Nova tarefa" style="flex:2;"><input type="date" id="taskDate" style="flex:1;"><button class="primary" id="taskAddBtn">+</button></div>');
+    c.appendChild(addRow);
+
+    if(state.tasks.length===0){
+      c.appendChild(el('<div class="empty"><span class="icon">▤</span>Nenhuma tarefa ainda.<br>Adicione a primeira acima.</div>'));
+    } else {
+      var today = todayStr();
+      var sorted = state.tasks.slice().sort(function(a,b){
+        if(a.done !== b.done) return a.done ? 1 : -1;
+        if(!a.dueDate && !b.dueDate) return 0;
+        if(!a.dueDate) return 1;
+        if(!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+      var card = el('<div class="card"></div>');
+      sorted.forEach(function(t){
+        var overdue = t.dueDate && t.dueDate < today && !t.done;
+        var row = el('<div class="task-row"><div class="checkbox"></div><div class="task-mid"><div class="task-title"></div><div class="task-due"></div></div><button class="icon-btn">×</button></div>');
+        var cb = row.querySelector('.checkbox');
+        cb.textContent = '✓';
+        if(t.done) cb.classList.add('done');
+        cb.addEventListener('click', function(){ toggleTask(t.id); });
+        var title = row.querySelector('.task-title');
+        title.textContent = t.title;
+        if(t.done) title.classList.add('done');
+        var due = row.querySelector('.task-due');
+        if(t.dueDate){
+          due.textContent = (overdue ? 'Atrasada · ' : 'Prazo: ') + fmtDue(t.dueDate);
+          if(overdue) due.classList.add('overdue');
+        } else {
+          due.textContent = 'Sem prazo';
+        }
+        row.querySelector('.icon-btn').addEventListener('click', function(){ deleteTask(t.id); });
+        card.appendChild(row);
+      });
+      c.appendChild(card);
+    }
+
+    document.getElementById('taskAddBtn').addEventListener('click', function(){
+      addTask(document.getElementById('taskInput').value, document.getElementById('taskDate').value);
+      document.getElementById('taskInput').value=''; document.getElementById('taskDate').value='';
+    });
+    document.getElementById('taskInput').addEventListener('keydown', function(e){
+      if(e.key==='Enter'){ addTask(this.value, document.getElementById('taskDate').value); this.value=''; document.getElementById('taskDate').value=''; }
+    });
+  }
+
+  function render(){
+    renderHeaderDate();
+    if(activeTab==='habitos') renderHabits();
+    else if(activeTab==='rotinas') renderRoutines();
+    else renderTasks();
+  }
+
+  // ---------- tabs ----------
+  document.querySelectorAll('nav.tabs button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('nav.tabs button').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      activeTab = btn.getAttribute('data-tab');
+      render();
+    });
+  });
+
+  // ---------- settings modal ----------
+  function openSettings(){
+    var cfg = syncConfig || {url:'', key:'', room:''};
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el(
+      '<div class="modal">'+
+      '<h2>Sincronização entre aparelhos</h2>'+
+      '<p class="hint">Para usar os mesmos dados no Mac e no iPhone, crie um projeto gratuito no Supabase e cole os dados abaixo. Use os MESMOS 3 valores nos dois aparelhos.</p>'+
+      '<label>URL do projeto Supabase</label><input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co">'+
+      '<label>Anon public key</label><input type="text" id="cfgKey" placeholder="eyJhbGciOi...">'+
+      '<label>Código do espaço (igual nos dois aparelhos)</label><input type="text" id="cfgRoom" placeholder="ex: esthevam-rotina">'+
+      '<div class="step-note">Passo a passo: 1) crie conta em supabase.com → 2) New project → 3) no SQL Editor, rode a instrução que aparece ao clicar em "Ver instruções de configuração" abaixo → 4) em Project Settings → API, copie a "Project URL" e a "anon public key".</div>'+
+      '<div class="actions">'+
+        '<button class="primary" id="cfgSave">Salvar e sincronizar</button>'+
+        '<button class="ghost" id="cfgSql">Ver instruções</button>'+
+      '</div>'+
+      '<div class="actions">'+
+        '<button class="ghost" id="cfgClear">Usar só neste aparelho</button>'+
+        '<button class="ghost" id="cfgClose">Fechar</button>'+
+      '</div>'+
+      '<div class="status-line" id="cfgStatus"></div>'+
+      '<hr style="border:none;border-top:1px solid var(--line);margin:18px 0;">'+
+      '<h2 style="font-size:16px;">Notificações</h2>'+
+      '<p class="hint">Avisa no aparelho quando uma tarefa fica atrasada, ou quando um hábito/rotina do dia continua pendente após as 20h. Só funciona com o app hospedado em HTTPS (não abrindo o arquivo direto) e, no iPhone, com o app já adicionado à Tela de Início. Ative em cada aparelho separadamente.</p>'+
+      '<button class="primary" id="pushEnableBtn">Ativar notificações neste aparelho</button>'+
+      '<div class="status-line" id="pushStatus"></div>'+
+      '</div>'
+    );
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.getElementById('cfgUrl').value = cfg.url;
+    document.getElementById('cfgKey').value = cfg.key;
+    document.getElementById('cfgRoom').value = cfg.room;
+
+    document.getElementById('cfgClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+
+    document.getElementById('cfgSql').addEventListener('click', function(){
+      var sql = "create table app_state (\n  id text primary key,\n  data jsonb not null default '{}'::jsonb,\n  updated_at timestamptz not null default now()\n);\n\nalter table app_state enable row level security;\n\ncreate policy \"allow all\" on app_state for all using (true) with check (true);";
+      alert("No SQL Editor do Supabase, rode:\n\n" + sql);
+    });
+
+    document.getElementById('cfgClear').addEventListener('click', function(){
+      syncConfig = null;
+      localStorage.removeItem('rotina_sync');
+      setSyncDot('off');
+      overlay.remove();
+    });
+
+    document.getElementById('pushEnableBtn').addEventListener('click', enablePush);
+
+    document.getElementById('cfgSave').addEventListener('click', function(){
+      var url = document.getElementById('cfgUrl').value.trim();
+      var key = document.getElementById('cfgKey').value.trim();
+      var room = document.getElementById('cfgRoom').value.trim();
+      if(!url || !key || !room){
+        document.getElementById('cfgStatus').textContent = 'Preencha os 3 campos.';
+        return;
+      }
+      syncConfig = { url: url, key: key, room: room };
+      localStorage.setItem('rotina_sync', JSON.stringify(syncConfig));
+      document.getElementById('cfgStatus').textContent = 'Conectando…';
+      initSync();
+      setTimeout(function(){ overlay.remove(); }, 400);
+    });
+  }
+
+  document.getElementById('gearBtn').addEventListener('click', openSettings);
+
+  // ---------- boot ----------
+  loadLocal();
+  render();
+  initSync();
+  registerServiceWorker().catch(function(){ /* sem HTTPS ou sem suporte, tudo bem */ });
+})();
+</script>
+</body>
+</html>
