@@ -25,10 +25,40 @@
     --ochre-soft:#F5E4D3;
     --danger:#B4432D;
     --danger-soft:#F6E0DA;
+    --blue:#3D6FA8;
+    --blue-soft:#E1EAF4;
+    --purple:#6B5B95;
+    --purple-soft:#EAE6F2;
     --radius:12px;
+    --glow: none;
     --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
+  html[data-theme="dark"]{
+    --paper:#12142A;
+    --card:#1B1E3C;
+    --ink:#EFEFFA;
+    --ink-soft:#B4B6DA;
+    --muted:#787CAE;
+    --line:#33366458;
+    --pine:#33E6C8;
+    --pine-soft:#1B3B3C;
+    --ochre:#FF9466;
+    --ochre-soft:#3A2A2C;
+    --danger:#FF6685;
+    --danger-soft:#3A1F30;
+    --blue:#5DB6FF;
+    --blue-soft:#173049;
+    --purple:#B39DFF;
+    --purple-soft:#2A2350;
+    --glow: 0 0 18px;
+  }
+  html[data-theme="dark"] body{ background: radial-gradient(ellipse 900px 500px at 50% -10%, #22265a 0%, #12142a 60%) fixed; }
+  html[data-theme="dark"] .card{ box-shadow: 0 1px 0 rgba(255,255,255,.03) inset; }
+  html[data-theme="dark"] button.primary{ box-shadow: var(--glow) rgba(51,230,200,.35); }
+  html[data-theme="dark"] .dot.today{ box-shadow:0 0 0 2px var(--ochre-soft), 0 0 0 3.5px var(--ochre), var(--glow) rgba(255,148,102,.4); }
+  html[data-theme="dark"] .dot.done{ box-shadow: var(--glow) rgba(51,230,200,.3); }
+  html[data-theme="dark"] .streak{ text-shadow: 0 0 12px rgba(255,148,102,.5); }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--sans);}
   body{padding-bottom:env(safe-area-inset-bottom);}
@@ -55,7 +85,7 @@
 
   main{flex:1;padding:18px 20px 40px 20px;}
 
-  .banner{background:var(--ochre-soft);border:1px solid #e6c9a8;border-radius:var(--radius);padding:12px 14px;font-size:13px;color:#7a4a1f;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .banner{background:var(--ochre-soft);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;font-size:13px;color:var(--ink);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
   .banner button{background:var(--ink);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
 
   .row-add{display:flex;gap:8px;margin-bottom:16px;}
@@ -95,7 +125,7 @@
   .add-item-row{display:flex;gap:8px;margin-top:8px;}
   .add-item-row input{padding:7px 10px;font-size:14px;}
 
-  .new-form{background:var(--pine-soft);border:1px solid #cfe0da;border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+  .new-form{background:var(--pine-soft);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
   .new-form label{font-size:12px;color:var(--ink-soft);display:block;margin:8px 0 4px 0;font-weight:600;}
   .new-form .actions{display:flex;gap:8px;margin-top:12px;}
 
@@ -120,6 +150,23 @@
   .status-line{font-size:12.5px;margin-top:10px;color:var(--ink-soft);}
   .step-note{font-size:12px;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-top:14px;line-height:1.55;}
   .step-note code{background:var(--ochre-soft);padding:1px 5px;border-radius:4px;font-size:11.5px;}
+
+  /* bento */
+  .bento{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .tile{position:relative;border-radius:16px;padding:14px 16px;text-align:left;border:1px solid var(--line);background:var(--card);cursor:pointer;font-family:var(--sans);transition:transform .12s;}
+  .tile:active{transform:scale(.97);}
+  .tile.wide{grid-column:span 2;}
+  .tile-habit{background:var(--pine-soft);}
+  .tile-routine{background:var(--blue-soft);}
+  .tile-task{background:var(--purple-soft);}
+  .tile-task.overdue{background:var(--danger-soft);}
+  .tile-add{background:none;border:1.5px dashed var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;min-height:56px;}
+  .tile-label{font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .tile-title{font-size:14.5px;font-weight:700;line-height:1.3;padding-right:26px;}
+  .tile-title.done{text-decoration:line-through;opacity:.6;}
+  .tile-sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px;}
+  .tile-quick{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);background:rgba(127,127,127,.12);display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;cursor:pointer;}
+  .tile-quick.done{background:var(--pine);border-color:var(--pine);color:#08201c;}
 </style>
 </head>
 <body>
@@ -129,15 +176,11 @@
       <div class="date" id="dateLabel"></div>
       <div class="right">
         <div class="sync-dot off" id="syncDot" title="Sincronização"></div>
+        <div class="gear" id="themeBtn" title="Alternar tema">☾</div>
         <div class="gear" id="gearBtn">⚙</div>
       </div>
     </div>
     <h1>Rotina</h1>
-    <nav class="tabs">
-      <button data-tab="habitos" class="active">Hábitos</button>
-      <button data-tab="rotinas">Rotinas</button>
-      <button data-tab="tarefas">Tarefas</button>
-    </nav>
   </header>
   <main id="content"></main>
 </div>
@@ -454,214 +497,199 @@
     document.getElementById('dateLabel').textContent = d.toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
   }
 
-  function renderHabits(){
-    var c = document.getElementById('content');
-    c.innerHTML = '';
-
-    var addRow = el('<div class="row-add"><input type="text" id="habitInput" placeholder="Novo hábito, ex: beber água"><button class="primary" id="habitAddBtn">+</button></div>');
-    c.appendChild(addRow);
-
-    if(state.habits.length===0){
-      c.appendChild(el('<div class="empty"><span class="icon">◎</span>Nenhum hábito ainda.<br>Adicione o primeiro acima.</div>'));
-    } else {
-      var days = last7();
-      var today = todayStr();
-      state.habits.forEach(function(h){
-        var card = el('<div class="card"></div>');
-        var top = el('<div class="card-top"><div class="card-title"></div><div style="display:flex;align-items:center;gap:10px;"><div class="streak"></div><button class="icon-btn">×</button></div></div>');
-        top.querySelector('.card-title').textContent = h.name;
-        var s = streakFor(h);
-        top.querySelector('.streak').textContent = s>0 ? (s + '🔥') : '';
-        top.querySelector('.icon-btn').addEventListener('click', function(){ deleteHabit(h.id); });
-        card.appendChild(top);
-
-        var punch = el('<div class="punch"></div>');
-        days.forEach(function(ds){
-          var wrap = el('<div class="dot-wrap"><div class="dow"></div></div>');
-          wrap.querySelector('.dow').textContent = fmtDay(ds);
-          var dot = el('<div class="dot">✓</div>');
-          if(h.completions[ds]) dot.classList.add('done');
-          if(ds===today) dot.classList.add('today');
-          dot.addEventListener('click', function(){ toggleHabitDay(h.id, ds); });
-          wrap.appendChild(dot);
-          punch.appendChild(wrap);
-        });
-        card.appendChild(punch);
-        c.appendChild(card);
-      });
-    }
-
-    document.getElementById('habitAddBtn').addEventListener('click', function(){
-      addHabit(document.getElementById('habitInput').value);
-      document.getElementById('habitInput').value='';
-    });
-    document.getElementById('habitInput').addEventListener('keydown', function(e){
-      if(e.key==='Enter'){ addHabit(this.value); this.value=''; }
-    });
+  function renderHeaderDate(){
+    var d = new Date();
+    document.getElementById('dateLabel').textContent = d.toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
   }
 
-  var showNewRoutineForm = false;
-  var editingTaskId = null;
+  function makeAddTile(label, onClick){
+    var tile = el('<button class="tile tile-add"></button>');
+    tile.textContent = label;
+    tile.addEventListener('click', onClick);
+    return tile;
+  }
 
-  function renderRoutines(){
+  function renderBento(){
     var c = document.getElementById('content');
     c.innerHTML = '';
+    var grid = el('<div class="bento"></div>');
 
-    var newBtnRow = el('<div style="margin-bottom:14px;"><button class="ghost" id="newRoutineBtn">+ Nova rotina</button></div>');
-    c.appendChild(newBtnRow);
+    grid.appendChild(makeAddTile('+ Hábito', openAddHabit));
+    grid.appendChild(makeAddTile('+ Rotina', openAddRoutine));
+    grid.appendChild(makeAddTile('+ Tarefa', openAddTask));
 
-    if(showNewRoutineForm){
-      var form = el('<div class="new-form">'+
-        '<label>Nome da rotina</label><input type="text" id="rName" placeholder="ex: Rotina da manhã">'+
-        '<label>Itens (um por linha)</label><textarea id="rItems" placeholder="Arrumar a cama\nTomar café\nRevisar agenda"></textarea>'+
-        '<div class="actions"><button class="primary" id="rSave">Salvar</button><button class="ghost" id="rCancel">Cancelar</button></div>'+
-        '</div>');
-      c.appendChild(form);
-      document.getElementById('rSave').addEventListener('click', function(){
-        addRoutine(document.getElementById('rName').value, document.getElementById('rItems').value);
-        showNewRoutineForm = false;
-        render();
-      });
-      document.getElementById('rCancel').addEventListener('click', function(){ showNewRoutineForm=false; render(); });
-    }
+    var today = todayStr();
 
-    if(state.routines.length===0 && !showNewRoutineForm){
-      c.appendChild(el('<div class="empty"><span class="icon">☑</span>Nenhuma rotina ainda.<br>Crie uma lista de passos para repetir todo dia.</div>'));
-    }
+    state.habits.forEach(function(h){
+      var s = streakFor(h);
+      var done = !!h.completions[today];
+      var tile = el('<div class="tile tile-habit"><div class="tile-label">Hábito</div><div class="tile-title"></div><div class="tile-sub"></div><button class="tile-quick"></button></div>');
+      tile.querySelector('.tile-title').textContent = h.name;
+      tile.querySelector('.tile-sub').textContent = s>0 ? s+' dias seguidos' : 'sem sequência';
+      var q = tile.querySelector('.tile-quick');
+      q.textContent = '✓';
+      if(done) q.classList.add('done');
+      q.addEventListener('click', function(e){ e.stopPropagation(); toggleHabitDay(h.id, today); });
+      tile.addEventListener('click', function(){ openHabitDetail(h.id); });
+      grid.appendChild(tile);
+    });
 
-    var ds = todayStr();
     state.routines.forEach(function(r){
-      var doneList = r.completions[ds] || [];
+      var doneList = r.completions[today] || [];
       var pct = r.items.length ? Math.round(100*doneList.length/r.items.length) : 0;
-
-      var card = el('<div class="card"></div>');
-      var top = el('<div class="card-top"><div class="card-title"></div><button class="icon-btn">×</button></div>');
-      top.querySelector('.card-title').textContent = r.name + '  ·  ' + doneList.length + '/' + r.items.length;
-      top.querySelector('.icon-btn').addEventListener('click', function(){ deleteRoutine(r.id); });
-      card.appendChild(top);
-
-      var bar = el('<div class="progress-bar"><div></div></div>');
-      bar.querySelector('div').style.width = pct + '%';
-      card.appendChild(bar);
-
-      r.items.forEach(function(item){
-        var checked = doneList.indexOf(item.id) >= 0;
-        var row = el('<div class="item-row"><div class="checkbox">✓</div><div class="item-text"></div><button class="icon-btn">×</button></div>');
-        var cb = row.querySelector('.checkbox');
-        var txt = row.querySelector('.item-text');
-        txt.textContent = item.text;
-        if(checked){ cb.classList.add('done'); txt.classList.add('done'); }
-        cb.addEventListener('click', function(){ toggleRoutineItemToday(r.id, item.id); });
-        row.querySelector('.icon-btn').addEventListener('click', function(){ deleteRoutineItem(r.id, item.id); });
-        card.appendChild(row);
-      });
-
-      var addItemRow = el('<div class="add-item-row"><input type="text" placeholder="Adicionar passo…"><button class="ghost">+</button></div>');
-      var input = addItemRow.querySelector('input');
-      addItemRow.querySelector('button').addEventListener('click', function(){ addRoutineItem(r.id, input.value); input.value=''; });
-      input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ addRoutineItem(r.id, this.value); this.value=''; } });
-      card.appendChild(addItemRow);
-
-      c.appendChild(card);
+      var tile = el('<div class="tile tile-routine wide"><div class="tile-label">Rotina</div><div class="tile-title"></div><div class="progress-bar" style="margin:8px 0 4px;"><div></div></div><div class="tile-sub"></div></div>');
+      tile.querySelector('.tile-title').textContent = r.name;
+      tile.querySelector('.progress-bar > div').style.width = pct + '%';
+      tile.querySelector('.tile-sub').textContent = doneList.length + '/' + r.items.length + ' feito hoje';
+      tile.addEventListener('click', function(){ openRoutineDetail(r.id); });
+      grid.appendChild(tile);
     });
 
-    document.getElementById('newRoutineBtn').addEventListener('click', function(){ showNewRoutineForm = true; render(); });
+    state.tasks.forEach(function(t){
+      var overdue = t.dueDate && t.dueDate < today && !t.done;
+      var tile = el('<div class="tile tile-task"><div class="tile-label">Tarefa</div><div class="tile-title"></div><div class="tile-sub"></div><button class="tile-quick"></button></div>');
+      if(overdue) tile.classList.add('overdue');
+      var titleEl = tile.querySelector('.tile-title');
+      titleEl.textContent = t.title;
+      if(t.done) titleEl.classList.add('done');
+      tile.querySelector('.tile-sub').textContent = t.dueDate ? ((overdue?'Atrasada · ':'Prazo: ') + fmtDue(t.dueDate)) : 'Sem prazo';
+      var q = tile.querySelector('.tile-quick');
+      q.textContent = '✓';
+      if(t.done) q.classList.add('done');
+      q.addEventListener('click', function(e){ e.stopPropagation(); toggleTask(t.id); });
+      tile.addEventListener('click', function(){ openTaskDetail(t.id); });
+      grid.appendChild(tile);
+    });
+
+    c.appendChild(grid);
+
+    if(state.habits.length===0 && state.routines.length===0 && state.tasks.length===0){
+      c.appendChild(el('<div class="empty" style="grid-column:span 2;"><span class="icon">✺</span>Nada por aqui ainda.<br>Toque em um dos blocos acima pra começar.</div>'));
+    }
   }
 
-  function renderTasks(){
-    var c = document.getElementById('content');
-    c.innerHTML = '';
-
-    var addRow = el('<div class="row-add"><input type="text" id="taskInput" placeholder="Nova tarefa" style="flex:2;"><input type="date" id="taskDate" style="flex:1;"><button class="primary" id="taskAddBtn">+</button></div>');
-    c.appendChild(addRow);
-
-    if(state.tasks.length===0){
-      c.appendChild(el('<div class="empty"><span class="icon">▤</span>Nenhuma tarefa ainda.<br>Adicione a primeira acima.</div>'));
-    } else {
-      var today = todayStr();
-      var sorted = state.tasks.slice().sort(function(a,b){
-        if(a.done !== b.done) return a.done ? 1 : -1;
-        if(!a.dueDate && !b.dueDate) return 0;
-        if(!a.dueDate) return 1;
-        if(!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      });
-      var card = el('<div class="card"></div>');
-      sorted.forEach(function(t){
-        if(editingTaskId === t.id){
-          var editRow = el(
-            '<div class="task-row" style="flex-direction:column;align-items:stretch;gap:8px;">'+
-            '<input type="text" class="editTitle">'+
-            '<div style="display:flex;gap:8px;">'+
-              '<input type="date" class="editDate" style="flex:1;">'+
-              '<button class="primary editSave">Salvar</button>'+
-              '<button class="ghost editCancel">Cancelar</button>'+
-            '</div>'+
-            '</div>'
-          );
-          editRow.querySelector('.editTitle').value = t.title;
-          editRow.querySelector('.editDate').value = t.dueDate || '';
-          editRow.querySelector('.editSave').addEventListener('click', function(){
-            editTask(t.id, editRow.querySelector('.editTitle').value, editRow.querySelector('.editDate').value);
-            editingTaskId = null;
-            render();
-          });
-          editRow.querySelector('.editCancel').addEventListener('click', function(){
-            editingTaskId = null;
-            render();
-          });
-          card.appendChild(editRow);
-          return;
-        }
-
-        var overdue = t.dueDate && t.dueDate < today && !t.done;
-        var row = el('<div class="task-row"><div class="checkbox"></div><div class="task-mid"><div class="task-title"></div><div class="task-due"></div></div><button class="icon-btn editBtn">✎</button><button class="icon-btn">×</button></div>');
-        var cb = row.querySelector('.checkbox');
-        cb.textContent = '✓';
-        if(t.done) cb.classList.add('done');
-        cb.addEventListener('click', function(){ toggleTask(t.id); });
-        var title = row.querySelector('.task-title');
-        title.textContent = t.title;
-        if(t.done) title.classList.add('done');
-        var due = row.querySelector('.task-due');
-        if(t.dueDate){
-          due.textContent = (overdue ? 'Atrasada · ' : 'Prazo: ') + fmtDue(t.dueDate);
-          if(overdue) due.classList.add('overdue');
-        } else {
-          due.textContent = 'Sem prazo';
-        }
-        row.querySelector('.editBtn').addEventListener('click', function(){ editingTaskId = t.id; render(); });
-        row.querySelectorAll('.icon-btn')[1].addEventListener('click', function(){ deleteTask(t.id); });
-        card.appendChild(row);
-      });
-      c.appendChild(card);
-    }
-
-    document.getElementById('taskAddBtn').addEventListener('click', function(){
-      addTask(document.getElementById('taskInput').value, document.getElementById('taskDate').value);
-      document.getElementById('taskInput').value=''; document.getElementById('taskDate').value='';
+  // ---------- detail modals ----------
+  function openHabitDetail(id){
+    var h = state.habits.find(function(x){return x.id===id;});
+    if(!h) return;
+    var days = last7();
+    var today = todayStr();
+    var s = streakFor(h);
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2></h2><p class="hint"></p><div class="punch" id="mPunch"></div><div class="actions" style="margin-top:20px;"><button class="ghost" id="mDelete">Remover hábito</button><button class="ghost" id="mClose">Fechar</button></div></div>');
+    modal.querySelector('h2').textContent = h.name;
+    modal.querySelector('.hint').textContent = s>0 ? (s + ' dias seguidos 🔥') : 'Marque os dias que completou.';
+    var punch = modal.querySelector('#mPunch');
+    days.forEach(function(ds){
+      var wrap = el('<div class="dot-wrap"><div class="dow"></div></div>');
+      wrap.querySelector('.dow').textContent = fmtDay(ds);
+      var dot = el('<div class="dot">✓</div>');
+      if(h.completions[ds]) dot.classList.add('done');
+      if(ds===today) dot.classList.add('today');
+      dot.addEventListener('click', function(){ toggleHabitDay(h.id, ds); overlay.remove(); openHabitDetail(id); });
+      wrap.appendChild(dot);
+      punch.appendChild(wrap);
     });
-    document.getElementById('taskInput').addEventListener('keydown', function(e){
-      if(e.key==='Enter'){ addTask(this.value, document.getElementById('taskDate').value); this.value=''; document.getElementById('taskDate').value=''; }
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteHabit(id); });
+  }
+
+  function openRoutineDetail(id){
+    var r = state.routines.find(function(x){return x.id===id;});
+    if(!r) return;
+    var ds = todayStr();
+    var doneList = r.completions[ds] || [];
+    var pct = r.items.length ? Math.round(100*doneList.length/r.items.length) : 0;
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2></h2><div class="progress-bar"><div></div></div><div id="mItems"></div><div class="add-item-row"><input type="text" id="mNewItem" placeholder="Adicionar passo…"><button class="ghost" id="mAddItem">+</button></div><div class="actions" style="margin-top:18px;"><button class="ghost" id="mDelete">Remover rotina</button><button class="ghost" id="mClose">Fechar</button></div></div>');
+    modal.querySelector('h2').textContent = r.name;
+    modal.querySelector('.progress-bar > div').style.width = pct + '%';
+    var itemsWrap = modal.querySelector('#mItems');
+    r.items.forEach(function(item){
+      var checked = doneList.indexOf(item.id) >= 0;
+      var row = el('<div class="item-row"><div class="checkbox">✓</div><div class="item-text"></div><button class="icon-btn">×</button></div>');
+      row.querySelector('.item-text').textContent = item.text;
+      if(checked){ row.querySelector('.checkbox').classList.add('done'); row.querySelector('.item-text').classList.add('done'); }
+      row.querySelector('.checkbox').addEventListener('click', function(){ toggleRoutineItemToday(r.id, item.id); overlay.remove(); openRoutineDetail(id); });
+      row.querySelector('.icon-btn').addEventListener('click', function(){ deleteRoutineItem(r.id, item.id); overlay.remove(); openRoutineDetail(id); });
+      itemsWrap.appendChild(row);
     });
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mAddItem').addEventListener('click', function(){ addRoutineItem(r.id, modal.querySelector('#mNewItem').value); overlay.remove(); openRoutineDetail(id); });
+    modal.querySelector('#mNewItem').addEventListener('keydown', function(e){ if(e.key==='Enter'){ addRoutineItem(r.id, this.value); overlay.remove(); openRoutineDetail(id); } });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteRoutine(id); });
+  }
+
+  function openTaskDetail(id){
+    var t = state.tasks.find(function(x){return x.id===id;});
+    if(!t) return;
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2>Editar tarefa</h2><label>Título</label><input type="text" id="mTitle"><label>Prazo</label><input type="date" id="mDate"><div class="actions"><button class="primary" id="mSave">Salvar</button><button class="ghost" id="mToggle"></button></div><div class="actions"><button class="ghost" id="mDelete">Remover</button><button class="ghost" id="mClose">Fechar</button></div></div>');
+    modal.querySelector('#mTitle').value = t.title;
+    modal.querySelector('#mDate').value = t.dueDate || '';
+    modal.querySelector('#mToggle').textContent = t.done ? 'Marcar como pendente' : 'Marcar como feita';
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mSave').addEventListener('click', function(){
+      editTask(id, modal.querySelector('#mTitle').value, modal.querySelector('#mDate').value);
+      overlay.remove();
+    });
+    modal.querySelector('#mToggle').addEventListener('click', function(){ toggleTask(id); overlay.remove(); });
+    modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteTask(id); });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  }
+
+  // ---------- add modals ----------
+  function openAddHabit(){
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2>Novo hábito</h2><label>Nome</label><input type="text" id="mName" placeholder="ex: beber água"><div class="actions"><button class="primary" id="mSave">Adicionar</button><button class="ghost" id="mClose">Cancelar</button></div></div>');
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mName').focus();
+    function save(){ addHabit(modal.querySelector('#mName').value); overlay.remove(); }
+    modal.querySelector('#mSave').addEventListener('click', save);
+    modal.querySelector('#mName').addEventListener('keydown', function(e){ if(e.key==='Enter') save(); });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  }
+
+  function openAddRoutine(){
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2>Nova rotina</h2><label>Nome da rotina</label><input type="text" id="mName" placeholder="ex: Rotina da manhã"><label>Itens (um por linha)</label><textarea id="mItems" placeholder="Arrumar a cama\nTomar café\nRevisar agenda"></textarea><div class="actions"><button class="primary" id="mSave">Salvar</button><button class="ghost" id="mClose">Cancelar</button></div></div>');
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mSave').addEventListener('click', function(){
+      addRoutine(modal.querySelector('#mName').value, modal.querySelector('#mItems').value);
+      overlay.remove();
+    });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  }
+
+  function openAddTask(){
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2>Nova tarefa</h2><label>Título</label><input type="text" id="mName" placeholder="ex: Fechar planilha"><label>Prazo (opcional)</label><input type="date" id="mDate"><div class="actions"><button class="primary" id="mSave">Adicionar</button><button class="ghost" id="mClose">Cancelar</button></div></div>');
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mName').focus();
+    function save(){ addTask(modal.querySelector('#mName').value, modal.querySelector('#mDate').value); overlay.remove(); }
+    modal.querySelector('#mSave').addEventListener('click', save);
+    modal.querySelector('#mName').addEventListener('keydown', function(e){ if(e.key==='Enter') save(); });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
   }
 
   function render(){
     renderHeaderDate();
-    if(activeTab==='habitos') renderHabits();
-    else if(activeTab==='rotinas') renderRoutines();
-    else renderTasks();
+    renderBento();
   }
-
-  // ---------- tabs ----------
-  document.querySelectorAll('nav.tabs button').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      document.querySelectorAll('nav.tabs button').forEach(function(b){b.classList.remove('active');});
-      btn.classList.add('active');
-      activeTab = btn.getAttribute('data-tab');
-      render();
-    });
-  });
 
   // ---------- settings modal ----------
   function openSettings(){
@@ -731,6 +759,22 @@
   }
 
   document.getElementById('gearBtn').addEventListener('click', openSettings);
+
+  // ---------- theme ----------
+  var THEME_KEY = 'rotina_theme';
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem(THEME_KEY, t);
+    var btn = document.getElementById('themeBtn');
+    if(btn) btn.textContent = t === 'dark' ? '☀' : '☾';
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if(meta) meta.setAttribute('content', t === 'dark' ? '#12142A' : '#F7F5F0');
+  }
+  document.getElementById('themeBtn').addEventListener('click', function(){
+    var current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(current);
+  });
+  applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
 
   // ---------- boot ----------
   loadLocal();
