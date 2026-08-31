@@ -432,6 +432,16 @@
     mutate();
   }
 
+  function editTask(id, title, dueDate){
+    var t = state.tasks.find(function(x){return x.id===id;});
+    if(!t) return;
+    title = title.trim();
+    if(!title) return;
+    t.title = title;
+    t.dueDate = dueDate || '';
+    mutate();
+  }
+
   // ---------- rendering ----------
   function el(html){
     var t = document.createElement('template');
@@ -491,6 +501,7 @@
   }
 
   var showNewRoutineForm = false;
+  var editingTaskId = null;
 
   function renderRoutines(){
     var c = document.getElementById('content');
@@ -577,8 +588,34 @@
       });
       var card = el('<div class="card"></div>');
       sorted.forEach(function(t){
+        if(editingTaskId === t.id){
+          var editRow = el(
+            '<div class="task-row" style="flex-direction:column;align-items:stretch;gap:8px;">'+
+            '<input type="text" class="editTitle">'+
+            '<div style="display:flex;gap:8px;">'+
+              '<input type="date" class="editDate" style="flex:1;">'+
+              '<button class="primary editSave">Salvar</button>'+
+              '<button class="ghost editCancel">Cancelar</button>'+
+            '</div>'+
+            '</div>'
+          );
+          editRow.querySelector('.editTitle').value = t.title;
+          editRow.querySelector('.editDate').value = t.dueDate || '';
+          editRow.querySelector('.editSave').addEventListener('click', function(){
+            editTask(t.id, editRow.querySelector('.editTitle').value, editRow.querySelector('.editDate').value);
+            editingTaskId = null;
+            render();
+          });
+          editRow.querySelector('.editCancel').addEventListener('click', function(){
+            editingTaskId = null;
+            render();
+          });
+          card.appendChild(editRow);
+          return;
+        }
+
         var overdue = t.dueDate && t.dueDate < today && !t.done;
-        var row = el('<div class="task-row"><div class="checkbox"></div><div class="task-mid"><div class="task-title"></div><div class="task-due"></div></div><button class="icon-btn">×</button></div>');
+        var row = el('<div class="task-row"><div class="checkbox"></div><div class="task-mid"><div class="task-title"></div><div class="task-due"></div></div><button class="icon-btn editBtn">✎</button><button class="icon-btn">×</button></div>');
         var cb = row.querySelector('.checkbox');
         cb.textContent = '✓';
         if(t.done) cb.classList.add('done');
@@ -593,7 +630,8 @@
         } else {
           due.textContent = 'Sem prazo';
         }
-        row.querySelector('.icon-btn').addEventListener('click', function(){ deleteTask(t.id); });
+        row.querySelector('.editBtn').addEventListener('click', function(){ editingTaskId = t.id; render(); });
+        row.querySelectorAll('.icon-btn')[1].addEventListener('click', function(){ deleteTask(t.id); });
         card.appendChild(row);
       });
       c.appendChild(card);
