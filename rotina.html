@@ -485,6 +485,105 @@
     mutate();
   }
 
+  function setTaskTranscript(id, text){
+    var t = state.tasks.find(function(x){return x.id===id;});
+    if(!t) return;
+    t.transcript = text;
+    mutate();
+  }
+
+  function setTaskRecording(id, url){
+    var t = state.tasks.find(function(x){return x.id===id;});
+    if(!t) return;
+    t.recordingUrl = url;
+    mutate();
+  }
+
+  // ---------- meeting recording + live transcription ----------
+  var recActive = false;
+  var recMediaRecorder = null;
+  var recChunks = [];
+  var recRecognition = null;
+
+  function startRecording(taskId, statusEl, transcriptEl, startBtn, stopBtn, audioWrapEl){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      statusEl.textContent = 'Gravação de áudio não é suportada neste navegador.';
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+      recChunks = [];
+      try{
+        recMediaRecorder = new MediaRecorder(stream);
+      }catch(e){
+        statusEl.textContent = 'Não foi possível iniciar a gravação neste navegador.';
+        return;
+      }
+      recMediaRecorder.ondataavailable = function(e){ if(e.data && e.data.size > 0) recChunks.push(e.data); };
+      recMediaRecorder.onstop = function(){
+        stream.getTracks().forEach(function(tr){ tr.stop(); });
+        var blob = new Blob(recChunks, { type: recMediaRecorder.mimeType || 'audio/webm' });
+        uploadRecording(taskId, blob, statusEl, audioWrapEl);
+      };
+      recMediaRecorder.start();
+      recActive = true;
+      startBtn.style.display = 'none';
+      stopBtn.style.display = '';
+      statusEl.textContent = 'Gravando…';
+
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(SR){
+        recRecognition = new SR();
+        recRecognition.lang = 'pt-BR';
+        recRecognition.continuous = true;
+        recRecognition.interimResults = true;
+        recRecognition.onresult = function(ev){
+          var finalText = '';
+          for(var i = ev.resultIndex; i < ev.results.length; i++){
+            if(ev.results[i].isFinal) finalText += ev.results[i][0].transcript + ' ';
+          }
+          if(finalText) transcriptEl.value = (transcriptEl.value + ' ' + finalText).trim();
+        };
+        recRecognition.onerror = function(){};
+        recRecognition.onend = function(){
+          if(recActive){ try{ recRecognition.start(); }catch(e){} }
+        };
+        try{ recRecognition.start(); }catch(e){}
+      } else {
+        statusEl.textContent = 'Gravando… (transcrição automática não disponível neste navegador — o áudio é salvo normalmente)';
+      }
+    }).catch(function(){
+      statusEl.textContent = 'Permissão de microfone negada.';
+    });
+  }
+
+  function stopRecording(taskId, statusEl, transcriptEl){
+    recActive = false;
+    if(recRecognition){ try{ recRecognition.stop(); }catch(e){} recRecognition = null; }
+    if(recMediaRecorder && recMediaRecorder.state !== 'inactive'){ recMediaRecorder.stop(); }
+    setTaskTranscript(taskId, transcriptEl.value);
+    statusEl.textContent = 'Salvando áudio…';
+  }
+
+  function uploadRecording(taskId, blob, statusEl, audioWrapEl){
+    if(!supabaseClient || !syncConfig){
+      statusEl.textContent = 'Transcrição salva. (Ative a sincronização pra também guardar o áudio.)';
+      return;
+    }
+    var path = (syncConfig.room || 'sem-espaco') + '/' + taskId + '-' + Date.now() + '.webm';
+    supabaseClient.storage.from('recordings').upload(path, blob, { contentType: blob.type || 'audio/webm' })
+      .then(function(res){
+        if(res.error){ statusEl.textContent = 'Erro ao enviar áudio: ' + res.error.message; return; }
+        var pub = supabaseClient.storage.from('recordings').getPublicUrl(path);
+        var url = pub && pub.data ? pub.data.publicUrl : null;
+        if(url){
+          setTaskRecording(taskId, url);
+          if(audioWrapEl) audioWrapEl.innerHTML = '<audio controls src="'+url+'" style="width:100%;margin-top:10px;"></audio>';
+        }
+        statusEl.textContent = 'Gravação salva ✓';
+      })
+      .catch(function(e){ statusEl.textContent = 'Erro ao enviar áudio: ' + e; });
+  }
+
   // ---------- rendering ----------
   function el(html){
     var t = document.createElement('template');
@@ -630,10 +729,33 @@
     var t = state.tasks.find(function(x){return x.id===id;});
     if(!t) return;
     var overlay = el('<div class="overlay"></div>');
-    var modal = el('<div class="modal"><h2>Editar tarefa</h2><label>Título</label><input type="text" id="mTitle"><label>Prazo</label><input type="date" id="mDate"><div class="actions"><button class="primary" id="mSave">Salvar</button><button class="ghost" id="mToggle"></button></div><div class="actions"><button class="ghost" id="mDelete">Remover</button><button class="ghost" id="mClose">Fechar</button></div></div>');
+    var modal = el(
+      '<div class="modal">'+
+      '<h2>Editar tarefa</h2>'+
+      '<label>Título</label><input type="text" id="mTitle">'+
+      '<label>Prazo</label><input type="date" id="mDate">'+
+      '<div class="actions"><button class="primary" id="mSave">Salvar</button><button class="ghost" id="mToggle"></button></div>'+
+      '<div class="actions"><button class="ghost" id="mDelete">Remover</button><button class="ghost" id="mClose">Fechar</button></div>'+
+      '<hr style="border:none;border-top:1px solid var(--line);margin:18px 0;">'+
+      '<h2 style="font-size:15px;">Gravação da reunião</h2>'+
+      '<p class="hint">Grava o áudio e, quando o navegador suporta (funciona bem no Mac/Chrome; é instável no Safari do iPhone), transcreve ao vivo. Você pode editar o texto por cima a qualquer momento.</p>'+
+      '<textarea id="mTranscript" placeholder="A transcrição aparece aqui ao gravar…" style="min-height:90px;"></textarea>'+
+      '<div class="actions">'+
+        '<button class="primary" id="mRecStart">🎙️ Gravar</button>'+
+        '<button class="ghost" id="mRecStop" style="display:none;">⏹ Parar</button>'+
+        '<button class="ghost" id="mTranscriptSave">Salvar texto</button>'+
+      '</div>'+
+      '<div class="status-line" id="mRecStatus"></div>'+
+      '<div id="mAudioWrap"></div>'+
+      '</div>'
+    );
     modal.querySelector('#mTitle').value = t.title;
     modal.querySelector('#mDate').value = t.dueDate || '';
     modal.querySelector('#mToggle').textContent = t.done ? 'Marcar como pendente' : 'Marcar como feita';
+    modal.querySelector('#mTranscript').value = t.transcript || '';
+    if(t.recordingUrl){
+      modal.querySelector('#mAudioWrap').innerHTML = '<audio controls src="'+t.recordingUrl+'" style="width:100%;margin-top:10px;"></audio>';
+    }
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     modal.querySelector('#mSave').addEventListener('click', function(){
@@ -644,6 +766,26 @@
     modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteTask(id); });
     modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
     overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+
+    modal.querySelector('#mTranscriptSave').addEventListener('click', function(){
+      setTaskTranscript(id, modal.querySelector('#mTranscript').value);
+      modal.querySelector('#mRecStatus').textContent = 'Texto salvo ✓';
+    });
+    modal.querySelector('#mRecStart').addEventListener('click', function(){
+      startRecording(
+        id,
+        modal.querySelector('#mRecStatus'),
+        modal.querySelector('#mTranscript'),
+        modal.querySelector('#mRecStart'),
+        modal.querySelector('#mRecStop'),
+        modal.querySelector('#mAudioWrap')
+      );
+    });
+    modal.querySelector('#mRecStop').addEventListener('click', function(){
+      stopRecording(id, modal.querySelector('#mRecStatus'), modal.querySelector('#mTranscript'));
+      modal.querySelector('#mRecStart').style.display = '';
+      modal.querySelector('#mRecStop').style.display = 'none';
+    });
   }
 
   // ---------- add modals ----------
