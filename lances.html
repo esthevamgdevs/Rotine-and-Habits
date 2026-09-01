@@ -97,8 +97,16 @@
     var cfg = loadConfig();
     if(!cfg || !cfg.idEvento){ setStatus('', 'Não configurado'); return; }
     setStatus('live', 'Atualizando…');
-    var url = FUNCTIONS_BASE + '/clever-function?id_evento=' + encodeURIComponent(cfg.idEvento);
-    fetch(url, { headers: { 'Authorization': 'Bearer ' + ANON_KEY, 'apikey': ANON_KEY } })
+    var url = FUNCTIONS_BASE + '/clever-function';
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + ANON_KEY,
+        'apikey': ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id_evento: cfg.idEvento })
+    })
       .then(function(r){ return r.json(); })
       .then(function(data){
         if(data.error){ setStatus('error', 'Erro: ' + data.error); return; }
