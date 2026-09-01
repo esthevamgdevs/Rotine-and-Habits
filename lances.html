@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12142A">
+<title>Listagem de Lances — Opportunity</title>
+<style>
+  :root{
+    --paper:#12142A; --card:#1B1E3C; --ink:#EFEFFA; --ink-soft:#B4B6DA; --muted:#787CAE;
+    --line:#33366458; --pine:#33E6C8; --pine-soft:#1B3B3C; --ochre:#FF9466; --ochre-soft:#3A2A2C;
+    --danger:#FF6685; --danger-soft:#3A1F30;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:radial-gradient(ellipse 900px 500px at 50% -10%, #22265a 0%, #12142a 60%) fixed;color:var(--ink);font-family:var(--sans);}
+  #app{max-width:900px;margin:0 auto;padding:22px 20px 60px 20px;}
+  .eyebrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .eyebrow .status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);}
+  .dot.live{background:var(--pine);animation:pulse 1.2s infinite;}
+  .dot.error{background:var(--danger);}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  .gear{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);font-size:15px;}
+  h1{font-family:var(--serif);font-size:26px;margin:6px 0 18px 0;}
+  .table-wrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;padding:12px 14px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--card);}
+  td{padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,.03);}
+  .empty{padding:50px 20px;text-align:center;color:var(--muted);font-size:14px;}
+  .overlay{position:fixed;inset:0;background:rgba(10,11,26,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal{background:var(--paper);border:1px solid var(--line);width:100%;max-width:440px;border-radius:16px;padding:22px;}
+  .modal h2{font-family:var(--serif);font-size:19px;margin:0 0 14px 0;}
+  .modal label{font-size:12px;color:var(--ink-soft);font-weight:600;display:block;margin:12px 0 4px 0;}
+  .modal input{width:100%;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-family:var(--sans);}
+  .modal .actions{display:flex;gap:8px;margin-top:18px;}
+  button.primary{background:var(--pine);color:#08201c;border:none;border-radius:9px;padding:10px 16px;font-size:14.5px;font-weight:700;cursor:pointer;}
+  button.ghost{background:none;border:1px solid var(--line);border-radius:9px;padding:9px 14px;font-size:14px;color:var(--ink-soft);cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="eyebrow">
+    <div class="status"><div class="dot" id="statusDot"></div><span id="statusText">Não configurado</span></div>
+    <div class="gear" id="gearBtn">⚙</div>
+  </div>
+  <h1>Listagem de Lances</h1>
+  <div class="table-wrap"><div id="content" class="empty">Configure o leilão pra começar (⚙).</div></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var FUNCTIONS_BASE = 'https://lukanbnaiidoqjgwwfus.functions.supabase.co';
+  var ANON_KEY = 'sb_publishable_dFHSKPUC-sK1sbBeGpCXwg_CFE_So6O';
+  var REFRESH_MS = 15000;
+  var timer = null;
+
+  function loadConfig(){
+    try{ return JSON.parse(localStorage.getItem('lances_config') || 'null'); }catch(e){ return null; }
+  }
+  function saveConfig(cfg){ localStorage.setItem('lances_config', JSON.stringify(cfg)); }
+
+  function setStatus(state, text){
+    var dot = document.getElementById('statusDot');
+    dot.className = 'dot ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function render(rows){
+    var c = document.getElementById('content');
+    if(!rows || rows.length === 0){
+      c.className = 'empty';
+      c.textContent = 'Nenhum lance encontrado ainda pra esse leilão.';
+      return;
+    }
+    c.className = '';
+    var table = document.createElement('table');
+    rows.forEach(function(row, i){
+      var tr = document.createElement('tr');
+      row.forEach(function(cell){
+        var el = document.createElement(i === 0 ? 'th' : 'td');
+        el.textContent = cell;
+        tr.appendChild(el);
+      });
+      table.appendChild(tr);
+    });
+    c.innerHTML = '';
+    c.appendChild(table);
+  }
+
+  function fetchLances(){
+    var cfg = loadConfig();
+    if(!cfg || !cfg.idEvento){ setStatus('', 'Não configurado'); return; }
+    setStatus('live', 'Atualizando…');
+    var url = FUNCTIONS_BASE + '/clever-function?id_evento=' + encodeURIComponent(cfg.idEvento);
+    fetch(url, { headers: { 'Authorization': 'Bearer ' + ANON_KEY, 'apikey': ANON_KEY } })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data.error){ setStatus('error', 'Erro: ' + data.error); return; }
+        render(data.rows);
+        var now = new Date();
+        setStatus('live', 'Atualizado às ' + now.toLocaleTimeString('pt-BR'));
+      })
+      .catch(function(e){ setStatus('error', 'Erro de conexão'); });
+  }
+
+  function startPolling(){
+    clearInterval(timer);
+    fetchLances();
+    timer = setInterval(fetchLances, REFRESH_MS);
+  }
+
+  function openSettings(){
+    var cfg = loadConfig() || { idEvento: '' };
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML =
+      '<div class="modal">'+
+      '<h2>Configurar leilão</h2>'+
+      '<label>ID do evento (id_evento)</label>'+
+      '<input type="text" id="cfgEvento" placeholder="ex: 117037">'+
+      '<div class="actions">'+
+        '<button class="primary" id="cfgSave">Salvar</button>'+
+        '<button class="ghost" id="cfgClose">Fechar</button>'+
+      '</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+    document.getElementById('cfgEvento').value = cfg.idEvento || '';
+    document.getElementById('cfgClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target === overlay) overlay.remove(); });
+    document.getElementById('cfgSave').addEventListener('click', function(){
+      var idEvento = document.getElementById('cfgEvento').value.trim();
+      if(!idEvento) return;
+      saveConfig({ idEvento: idEvento });
+      overlay.remove();
+      startPolling();
+    });
+  }
+
+  document.getElementById('gearBtn').addEventListener('click', openSettings);
+
+  var cfg = loadConfig();
+  if(cfg && cfg.idEvento) startPolling();
+})();
+</script>
+</body>
+</html>
