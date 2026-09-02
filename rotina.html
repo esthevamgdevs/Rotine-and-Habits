@@ -598,6 +598,31 @@
     mutate();
   }
 
+  function parseImportLine(line){
+    var m = line.match(/^(.+?)[\s\-–—]*R?\$?\s*([\d]+[.,]\d{2}|\d+)\s*$/);
+    if(m){
+      var name = m[1].trim().replace(/[-–—]\s*$/, '').trim();
+      var price = parseFloat(m[2].replace(',', '.')) || 0;
+      if(name) return { text: name, price: price };
+    }
+    return { text: line.trim(), price: 0 };
+  }
+
+  function importPurchase(listId, text, dateStr){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var lines = text.split('\n').map(function(t){return t.trim();}).filter(Boolean);
+    lines.forEach(function(line){
+      var parsed = parseImportLine(line);
+      if(!parsed.text) return;
+      var base = l.baseItems.find(function(i){ return i.text.trim().toLowerCase() === parsed.text.toLowerCase(); });
+      if(base){ if(parsed.price) base.price = parsed.price; }
+      else { l.baseItems.push({ id: uid(), text: parsed.text, price: parsed.price }); }
+      state.purchaseLog.push({ id: uid(), listId: l.id, listName: l.name, itemText: parsed.text, price: parsed.price, date: dateStr });
+    });
+    mutate();
+  }
+
   // ---------- tasks ----------
   function addTask(title, dueDate){
     title = title.trim();
@@ -951,7 +976,7 @@
       '<p class="hint" style="margin:2px 0 14px 0;">Este mês: <strong style="color:var(--ink);">'+fmtBRL(totals.cur)+'</strong> · Mês passado: '+fmtBRL(totals.prev)+' · <span style="color:'+diffColor+';font-weight:700;">'+diffSign+fmtBRL(diff)+'</span></p>'+
       '<div id="mItems"></div>'+
       '<div class="add-item-row"><input type="text" id="mNewItem" placeholder="Adicionar item…" style="flex:2;"><input type="number" id="mNewPrice" placeholder="R$" step="0.01" style="flex:1;"><button class="ghost" id="mAddItem">+</button></div>'+
-      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mRepeat">🔁 Repetir última compra</button></div>'+
+      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mRepeat">🔁 Repetir última compra</button><button class="ghost" id="mImport">📋 Importar compra anterior</button></div>'+
       '<hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">'+
       '<p class="hint" style="margin:0 0 8px 0;">Base (itens que você costuma comprar nessa lista):</p>'+
       '<div id="mBase"></div>'+
@@ -1011,9 +1036,36 @@
       if(e.key==='Enter'){ addShoppingItem(l.id, this.value, modal.querySelector('#mNewPrice').value); overlay.remove(); openShoppingListDetail(id); }
     });
     modal.querySelector('#mRepeat').addEventListener('click', function(){ repeatList(l.id); overlay.remove(); openShoppingListDetail(id); });
+    modal.querySelector('#mImport').addEventListener('click', function(){ overlay.remove(); openImportPurchase(id); });
     overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
     modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
     modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteShoppingList(id); });
+  }
+
+  function openImportPurchase(listId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el(
+      '<div class="modal">'+
+      '<h2>Importar compra anterior</h2>'+
+      '<p class="hint">Cole os itens dessa compra, um por linha, terminando com o valor (ex: <code>Leite - R$ 8,50</code>). Isso atualiza a base e entra no histórico de gastos na data escolhida — sem mexer na lista atual.</p>'+
+      '<label>Data da compra</label><input type="date" id="mDate">'+
+      '<label>Itens</label><textarea id="mLines" style="min-height:160px;" placeholder="Leite - R$ 8,50\nOvos - R$ 12,00\nCafé - R$ 18,90"></textarea>'+
+      '<div class="actions"><button class="primary" id="mSave">Importar</button><button class="ghost" id="mClose">Cancelar</button></div>'+
+      '</div>'
+    );
+    modal.querySelector('#mDate').value = todayStr();
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mSave').addEventListener('click', function(){
+      var dateStr = modal.querySelector('#mDate').value || todayStr();
+      importPurchase(listId, modal.querySelector('#mLines').value, dateStr);
+      overlay.remove();
+      openShoppingListDetail(listId);
+    });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); openShoppingListDetail(listId); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay){ overlay.remove(); openShoppingListDetail(listId); } });
   }
 
   function openAddShoppingList(){
