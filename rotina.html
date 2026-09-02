@@ -29,6 +29,8 @@
     --blue-soft:#E1EAF4;
     --purple:#6B5B95;
     --purple-soft:#EAE6F2;
+    --lime:#5B8A3A;
+    --lime-soft:#E5EEDB;
     --radius:12px;
     --glow: none;
     --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
@@ -51,6 +53,8 @@
     --blue-soft:#173049;
     --purple:#B39DFF;
     --purple-soft:#2A2350;
+    --lime:#A6E05C;
+    --lime-soft:#243318;
     --glow: 0 0 18px;
   }
   html[data-theme="dark"] body{ background: radial-gradient(ellipse 900px 500px at 50% -10%, #22265a 0%, #12142a 60%) fixed; }
@@ -159,6 +163,7 @@
   .tile-habit{background:var(--pine-soft);}
   .tile-routine{background:var(--blue-soft);}
   .tile-task{background:var(--purple-soft);}
+  .tile-shopping{background:var(--lime-soft);}
   .tile-task.overdue{background:var(--danger-soft);}
   .tile-add{background:none;border:1.5px dashed var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;min-height:56px;}
   .tile-label{font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
@@ -200,6 +205,7 @@
       <button class="fab-opt" id="fabHabit">🎯 Hábito</button>
       <button class="fab-opt" id="fabRoutine">☑️ Rotina</button>
       <button class="fab-opt" id="fabTask">📌 Tarefa</button>
+      <button class="fab-opt" id="fabShopping">🛒 Lista de compras</button>
     </div>
     <button class="fab" id="fabBtn">+</button>
   </div>
@@ -222,7 +228,7 @@
   }
 
   // ---------- state ----------
-  var state = { habits: [], routines: [], tasks: [] };
+  var state = { habits: [], routines: [], tasks: [], shoppingLists: [], purchaseLog: [] };
   var activeTab = "habitos";
   var syncConfig = null;
   var supabaseClient = null;
@@ -257,10 +263,20 @@
   }
 
   // ---------- persistence ----------
+  function normalizeState(s){
+    if(!s.shoppingLists) s.shoppingLists = [];
+    if(!s.purchaseLog) s.purchaseLog = [];
+    s.shoppingLists.forEach(function(l){
+      if(!l.baseItems) l.baseItems = (l.items || []).slice();
+    });
+    return s;
+  }
+
   function loadLocal(){
     try{
       var raw = localStorage.getItem('rotina_state');
       if(raw) state = JSON.parse(raw);
+      state = normalizeState(state);
     }catch(e){ console.error(e); }
     try{
       var rawSync = localStorage.getItem('rotina_sync');
@@ -308,7 +324,7 @@
           var remoteStr = JSON.stringify(res.data.data);
           var localStr = JSON.stringify(state);
           if(remoteStr !== localStr){
-            state = res.data.data;
+            state = normalizeState(res.data.data);
             saveLocal();
             render();
           }
@@ -342,7 +358,7 @@
         var incoming = payload.new && payload.new.data;
         if(!incoming) return;
         if(JSON.stringify(incoming) !== JSON.stringify(state)){
-          state = incoming;
+          state = normalizeState(incoming);
           saveLocal();
           render();
           setSyncDot('synced');
@@ -472,6 +488,113 @@
     var idx = list.indexOf(itemId);
     if(idx>=0) list.splice(idx,1); else list.push(itemId);
     r.completions[ds] = list;
+    mutate();
+  }
+
+  // ---------- shopping lists ----------
+  function fmtBRL(n){
+    return 'R$ ' + (n || 0).toFixed(2).replace('.', ',');
+  }
+
+  function monthKeyOf(dateStr){ return dateStr.slice(0,7); }
+
+  function listMonthlyTotals(listId){
+    var now = todayStr();
+    var curKey = monthKeyOf(now);
+    var prevD = new Date(now + 'T00:00:00');
+    prevD.setMonth(prevD.getMonth() - 1);
+    var prevKey = monthKeyOf(todayStr(prevD));
+    var cur = 0, prev = 0;
+    state.purchaseLog.forEach(function(e){
+      if(e.listId !== listId) return;
+      var k = monthKeyOf(e.date);
+      if(k === curKey) cur += (e.price || 0);
+      else if(k === prevKey) prev += (e.price || 0);
+    });
+    return { cur: cur, prev: prev };
+  }
+
+  function addShoppingList(name, itemsText){
+    name = name.trim();
+    if(!name) return;
+    var items = (itemsText || '').split('\n').map(function(t){return t.trim();}).filter(Boolean).map(function(t){return {id: uid(), text: t, price: 0};});
+    state.shoppingLists.push({ id: uid(), name: name, items: items, baseItems: items.map(function(i){return {id: uid(), text: i.text, price: i.price};}) });
+    mutate();
+  }
+
+  function deleteShoppingList(id){
+    if(!confirm('Remover esta lista de compras?')) return;
+    state.shoppingLists = state.shoppingLists.filter(function(l){return l.id!==id;});
+    mutate();
+  }
+
+  function findTextInList(items, text){
+    var t = text.trim().toLowerCase();
+    return items.some(function(i){ return i.text.trim().toLowerCase() === t; });
+  }
+
+  function addShoppingItem(listId, text, price){
+    text = text.trim();
+    if(!text) return;
+    price = parseFloat(price) || 0;
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    l.items.push({ id: uid(), text: text, price: price });
+    var base = l.baseItems.find(function(i){ return i.text.trim().toLowerCase() === text.toLowerCase(); });
+    if(base){ if(price) base.price = price; }
+    else { l.baseItems.push({ id: uid(), text: text, price: price }); }
+    mutate();
+  }
+
+  function updateItemPrice(listId, itemId, price){
+    price = parseFloat(price) || 0;
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var item = l.items.find(function(i){return i.id===itemId;});
+    if(!item) return;
+    item.price = price;
+    var base = l.baseItems.find(function(i){ return i.text.trim().toLowerCase() === item.text.trim().toLowerCase(); });
+    if(base) base.price = price;
+    mutate();
+  }
+
+  function removeShoppingItem(listId, itemId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var item = l.items.find(function(i){return i.id===itemId;});
+    if(item){
+      state.purchaseLog.push({ id: uid(), listId: l.id, listName: l.name, itemText: item.text, price: item.price || 0, date: todayStr() });
+    }
+    l.items = l.items.filter(function(i){return i.id!==itemId;});
+    mutate();
+  }
+
+  function addFromBase(listId, baseItemId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var base = l.baseItems.find(function(i){return i.id===baseItemId;});
+    if(!base) return;
+    if(!findTextInList(l.items, base.text)){
+      l.items.push({ id: uid(), text: base.text, price: base.price || 0 });
+    }
+    mutate();
+  }
+
+  function repeatList(listId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    l.baseItems.forEach(function(base){
+      if(!findTextInList(l.items, base.text)){
+        l.items.push({ id: uid(), text: base.text, price: base.price || 0 });
+      }
+    });
+    mutate();
+  }
+
+  function removeFromBase(listId, baseItemId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    l.baseItems = l.baseItems.filter(function(i){return i.id!==baseItemId;});
     mutate();
   }
 
@@ -676,9 +799,19 @@
       grid.appendChild(tile);
     });
 
+    state.shoppingLists.forEach(function(l){
+      var totals = listMonthlyTotals(l.id);
+      var tile = el('<div class="tile tile-shopping wide"><div class="tile-label">Compras</div><div class="tile-title"></div><div class="tile-sub"></div></div>');
+      tile.querySelector('.tile-title').textContent = l.name;
+      var itemsLabel = l.items.length + (l.items.length===1 ? ' item' : ' itens');
+      tile.querySelector('.tile-sub').textContent = itemsLabel + (totals.cur ? ' · ' + fmtBRL(totals.cur) + ' este mês' : '');
+      tile.addEventListener('click', function(){ openShoppingListDetail(l.id); });
+      grid.appendChild(tile);
+    });
+
     c.appendChild(grid);
 
-    if(state.habits.length===0 && state.routines.length===0 && state.tasks.length===0){
+    if(state.habits.length===0 && state.routines.length===0 && state.tasks.length===0 && state.shoppingLists.length===0){
       c.appendChild(el('<div class="empty" style="grid-column:span 2;"><span class="icon">✺</span>Nada por aqui ainda.<br>Toque em um dos blocos acima pra começar.</div>'));
     }
   }
@@ -802,6 +935,99 @@
       modal.querySelector('#mRecStart').style.display = '';
       modal.querySelector('#mRecStop').style.display = 'none';
     });
+  }
+
+  function openShoppingListDetail(id){
+    var l = state.shoppingLists.find(function(x){return x.id===id;});
+    if(!l) return;
+    var totals = listMonthlyTotals(id);
+    var diff = totals.cur - totals.prev;
+    var diffColor = diff > 0 ? 'var(--danger)' : (diff < 0 ? 'var(--pine)' : 'var(--ink-soft)');
+    var diffSign = diff > 0 ? '+' : '';
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el(
+      '<div class="modal">'+
+      '<h2></h2>'+
+      '<p class="hint" style="margin:2px 0 14px 0;">Este mês: <strong style="color:var(--ink);">'+fmtBRL(totals.cur)+'</strong> · Mês passado: '+fmtBRL(totals.prev)+' · <span style="color:'+diffColor+';font-weight:700;">'+diffSign+fmtBRL(diff)+'</span></p>'+
+      '<div id="mItems"></div>'+
+      '<div class="add-item-row"><input type="text" id="mNewItem" placeholder="Adicionar item…" style="flex:2;"><input type="number" id="mNewPrice" placeholder="R$" step="0.01" style="flex:1;"><button class="ghost" id="mAddItem">+</button></div>'+
+      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mRepeat">🔁 Repetir última compra</button></div>'+
+      '<hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">'+
+      '<p class="hint" style="margin:0 0 8px 0;">Base (itens que você costuma comprar nessa lista):</p>'+
+      '<div id="mBase"></div>'+
+      '<div class="actions" style="margin-top:18px;"><button class="ghost" id="mDelete">Remover lista</button><button class="ghost" id="mClose">Fechar</button></div>'+
+      '</div>'
+    );
+    modal.querySelector('h2').textContent = l.name;
+
+    var itemsWrap = modal.querySelector('#mItems');
+    if(l.items.length === 0){
+      itemsWrap.appendChild(el('<div class="hint" style="padding:6px 0;">Lista vazia no momento.</div>'));
+    }
+    l.items.forEach(function(item){
+      var row = el('<div class="item-row"><div class="checkbox">✓</div><div class="item-text" style="flex:1;"></div><button class="icon-btn" title="Editar valor">💲</button></div>');
+      row.querySelector('.item-text').textContent = item.text + (item.price ? ' — ' + fmtBRL(item.price) : '');
+      row.querySelector('.checkbox').addEventListener('click', function(){
+        removeShoppingItem(l.id, item.id);
+        overlay.remove();
+        openShoppingListDetail(id);
+      });
+      row.querySelector('.icon-btn').addEventListener('click', function(){
+        var v = window.prompt('Valor de "' + item.text + '" (R$):', item.price || '');
+        if(v !== null){ updateItemPrice(l.id, item.id, v); overlay.remove(); openShoppingListDetail(id); }
+      });
+      itemsWrap.appendChild(row);
+    });
+
+    var baseWrap = modal.querySelector('#mBase');
+    if(l.baseItems.length === 0){
+      baseWrap.appendChild(el('<div class="hint" style="padding:6px 0;">Nenhum item salvo na base ainda.</div>'));
+    }
+    l.baseItems.forEach(function(base){
+      var already = findTextInList(l.items, base.text);
+      var row = el('<div class="item-row"><div class="item-text" style="flex:1;"></div></div>');
+      row.querySelector('.item-text').textContent = base.text + (base.price ? ' — ' + fmtBRL(base.price) : '');
+      if(already){
+        var tag = el('<span style="font-size:11px;color:var(--pine);font-weight:700;">na lista</span>');
+        row.appendChild(tag);
+      } else {
+        var addBtn = el('<button class="icon-btn" title="Adicionar à lista">+</button>');
+        addBtn.addEventListener('click', function(){ addFromBase(l.id, base.id); overlay.remove(); openShoppingListDetail(id); });
+        row.appendChild(addBtn);
+      }
+      var delBtn = el('<button class="icon-btn" title="Remover da base">×</button>');
+      delBtn.addEventListener('click', function(){ removeFromBase(l.id, base.id); overlay.remove(); openShoppingListDetail(id); });
+      row.appendChild(delBtn);
+      baseWrap.appendChild(row);
+    });
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mAddItem').addEventListener('click', function(){
+      addShoppingItem(l.id, modal.querySelector('#mNewItem').value, modal.querySelector('#mNewPrice').value);
+      overlay.remove(); openShoppingListDetail(id);
+    });
+    modal.querySelector('#mNewItem').addEventListener('keydown', function(e){
+      if(e.key==='Enter'){ addShoppingItem(l.id, this.value, modal.querySelector('#mNewPrice').value); overlay.remove(); openShoppingListDetail(id); }
+    });
+    modal.querySelector('#mRepeat').addEventListener('click', function(){ repeatList(l.id); overlay.remove(); openShoppingListDetail(id); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteShoppingList(id); });
+  }
+
+  function openAddShoppingList(){
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2>Nova lista de compras</h2><label>Nome da lista</label><input type="text" id="mName" placeholder="ex: Mercado"><label>Itens (um por linha, opcional)</label><textarea id="mItems" placeholder="Leite\nOvos\nCafé"></textarea><div class="actions"><button class="primary" id="mSave">Salvar</button><button class="ghost" id="mClose">Cancelar</button></div></div>');
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mName').focus();
+    modal.querySelector('#mSave').addEventListener('click', function(){
+      addShoppingList(modal.querySelector('#mName').value, modal.querySelector('#mItems').value);
+      overlay.remove();
+    });
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
   }
 
   // ---------- add modals ----------
@@ -932,6 +1158,7 @@
   document.getElementById('fabHabit').addEventListener('click', function(){ closeFab(); openAddHabit(); });
   document.getElementById('fabRoutine').addEventListener('click', function(){ closeFab(); openAddRoutine(); });
   document.getElementById('fabTask').addEventListener('click', function(){ closeFab(); openAddTask(); });
+  document.getElementById('fabShopping').addEventListener('click', function(){ closeFab(); openAddShoppingList(); });
   document.addEventListener('click', function(e){
     if(!e.target.closest('.fab-wrap')) closeFab();
   });
@@ -955,6 +1182,12 @@
   // ---------- boot ----------
   loadLocal();
   render();
+  initSync();
+  registerServiceWorker().catch(function(){ /* sem HTTPS ou sem suporte, tudo bem */ });
+})();
+</script>
+</body>
+</html>
   initSync();
   registerServiceWorker().catch(function(){ /* sem HTTPS ou sem suporte, tudo bem */ });
 })();
