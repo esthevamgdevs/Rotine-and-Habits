@@ -623,6 +623,23 @@
     mutate();
   }
 
+  function editLogDate(logId, newDate){
+    var e = state.purchaseLog.find(function(x){return x.id===logId;});
+    if(!e) return;
+    e.date = newDate;
+    mutate();
+  }
+
+  function deleteLogEntry(logId){
+    state.purchaseLog = state.purchaseLog.filter(function(x){return x.id!==logId;});
+    mutate();
+  }
+
+  function deleteAllLogForList(listId, dateStr){
+    state.purchaseLog = state.purchaseLog.filter(function(x){ return !(x.listId===listId && x.date===dateStr); });
+    mutate();
+  }
+
   // ---------- tasks ----------
   function addTask(title, dueDate){
     title = title.trim();
@@ -976,7 +993,7 @@
       '<p class="hint" style="margin:2px 0 14px 0;">Este mês: <strong style="color:var(--ink);">'+fmtBRL(totals.cur)+'</strong> · Mês passado: '+fmtBRL(totals.prev)+' · <span style="color:'+diffColor+';font-weight:700;">'+diffSign+fmtBRL(diff)+'</span></p>'+
       '<div id="mItems"></div>'+
       '<div class="add-item-row"><input type="text" id="mNewItem" placeholder="Adicionar item…" style="flex:2;"><input type="number" id="mNewPrice" placeholder="R$" step="0.01" style="flex:1;"><button class="ghost" id="mAddItem">+</button></div>'+
-      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mRepeat">🔁 Repetir última compra</button><button class="ghost" id="mImport">📋 Importar compra anterior</button></div>'+
+      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mRepeat">🔁 Repetir última compra</button><button class="ghost" id="mImport">📋 Importar compra anterior</button><button class="ghost" id="mHistory">📜 Histórico</button></div>'+
       '<hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">'+
       '<p class="hint" style="margin:0 0 8px 0;">Base (itens que você costuma comprar nessa lista):</p>'+
       '<div id="mBase"></div>'+
@@ -1037,9 +1054,40 @@
     });
     modal.querySelector('#mRepeat').addEventListener('click', function(){ repeatList(l.id); overlay.remove(); openShoppingListDetail(id); });
     modal.querySelector('#mImport').addEventListener('click', function(){ overlay.remove(); openImportPurchase(id); });
+    modal.querySelector('#mHistory').addEventListener('click', function(){ overlay.remove(); openPurchaseHistory(id); });
     overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
     modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
     modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteShoppingList(id); });
+  }
+
+  function openPurchaseHistory(listId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var entries = state.purchaseLog.filter(function(e){return e.listId===listId;}).sort(function(a,b){ return b.date.localeCompare(a.date); });
+    var overlay = el('<div class="overlay"></div>');
+    var modal = el('<div class="modal"><h2>Histórico — '+l.name+'</h2><p class="hint">Se alguma data entrou errada (ex: importação que caiu no mês atual), corrija ou apague aqui.</p><div id="mLog"></div><div class="actions" style="margin-top:18px;"><button class="ghost" id="mClose">Fechar</button></div></div>');
+    var logWrap = modal.querySelector('#mLog');
+    if(entries.length === 0){
+      logWrap.appendChild(el('<div class="hint" style="padding:10px 0;">Nenhuma compra registrada ainda.</div>'));
+    }
+    entries.forEach(function(e){
+      var row = el('<div class="item-row" style="gap:8px;"><input type="date" style="width:140px;flex:none;"><div class="item-text" style="flex:1;"></div><button class="icon-btn">×</button></div>');
+      row.querySelector('input[type=date]').value = e.date;
+      row.querySelector('.item-text').textContent = e.itemText + ' — ' + fmtBRL(e.price);
+      row.querySelector('input[type=date]').addEventListener('change', function(){
+        editLogDate(e.id, this.value);
+        overlay.remove(); openPurchaseHistory(listId);
+      });
+      row.querySelector('.icon-btn').addEventListener('click', function(){
+        deleteLogEntry(e.id);
+        overlay.remove(); openPurchaseHistory(listId);
+      });
+      logWrap.appendChild(row);
+    });
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); openShoppingListDetail(listId); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay){ overlay.remove(); openShoppingListDetail(listId); } });
   }
 
   function openImportPurchase(listId){
@@ -1050,7 +1098,7 @@
       '<div class="modal">'+
       '<h2>Importar compra anterior</h2>'+
       '<p class="hint">Cole os itens dessa compra, um por linha, terminando com o valor (ex: <code>Leite - R$ 8,50</code>). Isso atualiza a base e entra no histórico de gastos na data escolhida — sem mexer na lista atual.</p>'+
-      '<label>Data da compra</label><input type="date" id="mDate">'+
+      '<label style="color:var(--danger);">⚠️ Data da compra (confira antes de importar!)</label><input type="date" id="mDate">'+
       '<label>Itens</label><textarea id="mLines" style="min-height:160px;" placeholder="Leite - R$ 8,50\nOvos - R$ 12,00\nCafé - R$ 18,90"></textarea>'+
       '<div class="actions"><button class="primary" id="mSave">Importar</button><button class="ghost" id="mClose">Cancelar</button></div>'+
       '</div>'
