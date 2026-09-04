@@ -560,14 +560,23 @@
     mutate();
   }
 
-  function removeShoppingItem(listId, itemId){
+  function toggleShoppingItemDone(listId, itemId){
     var l = state.shoppingLists.find(function(x){return x.id===listId;});
     if(!l) return;
     var item = l.items.find(function(i){return i.id===itemId;});
-    if(item){
+    if(!item) return;
+    item.done = !item.done;
+    mutate();
+  }
+
+  function clearBoughtItems(listId){
+    var l = state.shoppingLists.find(function(x){return x.id===listId;});
+    if(!l) return;
+    var bought = l.items.filter(function(i){return i.done;});
+    bought.forEach(function(item){
       state.purchaseLog.push({ id: uid(), listId: l.id, listName: l.name, itemText: item.text, price: item.price || 0, date: todayStr() });
-    }
-    l.items = l.items.filter(function(i){return i.id!==itemId;});
+    });
+    l.items = l.items.filter(function(i){return !i.done;});
     mutate();
   }
 
@@ -849,7 +858,8 @@
       var totals = listMonthlyTotals(l.id);
       var tile = el('<div class="tile tile-shopping wide"><div class="tile-label">Compras</div><div class="tile-title"></div><div class="tile-sub"></div></div>');
       tile.querySelector('.tile-title').textContent = l.name;
-      var itemsLabel = l.items.length + (l.items.length===1 ? ' item' : ' itens');
+      var pendingCount = l.items.filter(function(i){return !i.done;}).length;
+      var itemsLabel = pendingCount + (pendingCount===1 ? ' item' : ' itens');
       tile.querySelector('.tile-sub').textContent = itemsLabel + (totals.cur ? ' · ' + fmtBRL(totals.cur) + ' este mês' : '');
       tile.addEventListener('click', function(){ openShoppingListDetail(l.id); });
       grid.appendChild(tile);
@@ -997,7 +1007,7 @@
       '<p class="hint" style="margin:2px 0 14px 0;">Este mês: <strong style="color:var(--ink);">'+fmtBRL(totals.cur)+'</strong> · Mês passado: '+fmtBRL(totals.prev)+' · <span style="color:'+diffColor+';font-weight:700;">'+diffSign+fmtBRL(diff)+'</span></p>'+
       '<div id="mItems"></div>'+
       '<div class="add-item-row"><input type="text" id="mNewItem" placeholder="Adicionar item…" style="flex:2;"><input type="number" id="mNewPrice" placeholder="R$" step="0.01" style="flex:1;"><button class="ghost" id="mAddItem">+</button></div>'+
-      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mRepeat">🔁 Repetir última compra</button><button class="ghost" id="mImport">📋 Importar compra anterior</button><button class="ghost" id="mHistory">📜 Histórico</button></div>'+
+      '<div class="actions" style="margin-top:14px;"><button class="ghost" id="mClear">🧹 Limpar comprados</button><button class="ghost" id="mRepeat">🔁 Repetir última compra</button><button class="ghost" id="mImport">📋 Importar compra anterior</button><button class="ghost" id="mHistory">📜 Histórico</button></div>'+
       '<hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">'+
       '<p class="hint" style="margin:0 0 8px 0;">Base (itens que você costuma comprar nessa lista):</p>'+
       '<div id="mBase"></div>'+
@@ -1010,11 +1020,17 @@
     if(l.items.length === 0){
       itemsWrap.appendChild(el('<div class="hint" style="padding:6px 0;">Lista vazia no momento.</div>'));
     }
-    l.items.forEach(function(item){
+    var sortedItems = l.items.slice().sort(function(a,b){ return (a.done?1:0) - (b.done?1:0); });
+    sortedItems.forEach(function(item){
       var row = el('<div class="item-row"><div class="checkbox">✓</div><div class="item-text" style="flex:1;"></div><button class="icon-btn" title="Editar valor">💲</button></div>');
-      row.querySelector('.item-text').textContent = item.text + (item.price ? ' — ' + fmtBRL(item.price) : '');
+      var textEl = row.querySelector('.item-text');
+      textEl.textContent = item.text + (item.price ? ' — ' + fmtBRL(item.price) : '');
+      if(item.done){
+        textEl.classList.add('done');
+        row.querySelector('.checkbox').classList.add('done');
+      }
       row.querySelector('.checkbox').addEventListener('click', function(){
-        removeShoppingItem(l.id, item.id);
+        toggleShoppingItemDone(l.id, item.id);
         overlay.remove();
         openShoppingListDetail(id);
       });
@@ -1059,6 +1075,7 @@
     modal.querySelector('#mRepeat').addEventListener('click', function(){ repeatList(l.id); overlay.remove(); openShoppingListDetail(id); });
     modal.querySelector('#mImport').addEventListener('click', function(){ overlay.remove(); openImportPurchase(id); });
     modal.querySelector('#mHistory').addEventListener('click', function(){ overlay.remove(); openPurchaseHistory(id); });
+    modal.querySelector('#mClear').addEventListener('click', function(){ clearBoughtItems(id); overlay.remove(); openShoppingListDetail(id); });
     overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
     modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
     modal.querySelector('#mDelete').addEventListener('click', function(){ overlay.remove(); deleteShoppingList(id); });
