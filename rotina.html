@@ -856,6 +856,8 @@
 
     state.shoppingLists.forEach(function(l){
       var totals = listMonthlyTotals(l.id);
+      var pendingBoughtTile = l.items.filter(function(i){return i.done;}).reduce(function(sum, i){return sum + (i.price || 0);}, 0);
+      totals.cur += pendingBoughtTile;
       var tile = el('<div class="tile tile-shopping wide"><div class="tile-label">Compras</div><div class="tile-title"></div><div class="tile-sub"></div></div>');
       tile.querySelector('.tile-title').textContent = l.name;
       var pendingCount = l.items.filter(function(i){return !i.done;}).length;
@@ -997,6 +999,8 @@
     var l = state.shoppingLists.find(function(x){return x.id===id;});
     if(!l) return;
     var totals = listMonthlyTotals(id);
+    var pendingBought = l.items.filter(function(i){return i.done;}).reduce(function(sum, i){return sum + (i.price || 0);}, 0);
+    totals.cur += pendingBought;
     var diff = totals.cur - totals.prev;
     var diffColor = diff > 0 ? 'var(--danger)' : (diff < 0 ? 'var(--pine)' : 'var(--ink-soft)');
     var diffSign = diff > 0 ? '+' : '';
