@@ -172,6 +172,20 @@
   .tile-sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px;}
   .tile-quick{position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);background:rgba(127,127,127,.12);display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;cursor:pointer;}
   .tile-quick.done{background:var(--pine);border-color:var(--pine);color:#08201c;}
+  .tile-summary{background:linear-gradient(135deg, var(--purple-soft), var(--blue-soft));}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 18px;}
+  .stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;}
+  .stat-card.wide{grid-column:span 2;}
+  .stat-label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin-bottom:4px;}
+  .stat-value{font-family:var(--serif);font-size:22px;font-weight:700;}
+  .chart-block{margin-bottom:20px;}
+  .chart-title{font-size:13px;font-weight:600;margin-bottom:8px;}
+  .chart-row{display:flex;align-items:flex-end;gap:6px;height:70px;}
+  .chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;}
+  .chart-bar{width:100%;background:var(--blue);border-radius:4px 4px 0 0;min-height:2px;}
+  .chart-bar.current{background:var(--pine);}
+  .chart-label{font-size:9px;color:var(--muted);text-align:center;margin-top:4px;}
+  .chart-value{font-size:9px;color:var(--ink-soft);text-align:center;}
 
   /* floating action button */
   .fab-wrap{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:40;}
@@ -500,6 +514,66 @@
 
   function monthKeyOf(dateStr){ return dateStr.slice(0,7); }
 
+  function monthLabel(key){
+    var names = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    var parts = key.split('-');
+    return names[parseInt(parts[1],10)-1];
+  }
+
+  function last6MonthKeys(){
+    var arr = [];
+    var d = new Date();
+    for(var i=5;i>=0;i--){
+      var dd = new Date(d.getFullYear(), d.getMonth()-i, 1);
+      arr.push(dd.toISOString().slice(0,7));
+    }
+    return arr;
+  }
+
+  function listMonthSeries(listId){
+    var keys = last6MonthKeys();
+    var totals = keys.map(function(){ return 0; });
+    state.purchaseLog.forEach(function(e){
+      if(e.listId !== listId) return;
+      var idx = keys.indexOf(monthKeyOf(e.date));
+      if(idx >= 0) totals[idx] += (e.price || 0);
+    });
+    return { keys: keys, totals: totals };
+  }
+
+  function totalSpendThisMonth(){
+    var total = 0;
+    state.shoppingLists.forEach(function(l){
+      var t = listMonthlyTotals(l.id);
+      var pending = l.items.filter(function(i){return i.done;}).reduce(function(s,i){return s+(i.price||0);}, 0);
+      total += t.cur + pending;
+    });
+    return total;
+  }
+
+  function longestActiveStreak(){
+    var best = { name: '', streak: 0 };
+    state.habits.forEach(function(h){
+      var s = streakFor(h);
+      if(s > best.streak){ best = { name: h.name, streak: s }; }
+    });
+    return best;
+  }
+
+  function routinesWeeklyPercent(){
+    var days = last7();
+    var total = 0, count = 0;
+    state.routines.forEach(function(r){
+      if(!r.items.length) return;
+      days.forEach(function(ds){
+        var done = (r.completions[ds] || []).length;
+        total += done / r.items.length;
+        count++;
+      });
+    });
+    return count ? Math.round(100 * total / count) : 0;
+  }
+
   function listMonthlyTotals(listId){
     var now = todayStr();
     var curKey = monthKeyOf(now);
@@ -813,6 +887,14 @@
 
     var today = todayStr();
 
+    var summaryTile = el('<div class="tile tile-summary wide"><div class="tile-label">Resumo</div><div class="tile-title"></div><div class="tile-sub"></div></div>');
+    var totalNow = totalSpendThisMonth();
+    var bestStreak = longestActiveStreak();
+    summaryTile.querySelector('.tile-title').textContent = 'Gasto do mês: ' + fmtBRL(totalNow);
+    summaryTile.querySelector('.tile-sub').textContent = (bestStreak.streak>0 ? bestStreak.name + ': ' + bestStreak.streak + ' dias · ' : '') + 'Rotinas na semana: ' + routinesWeeklyPercent() + '%';
+    summaryTile.addEventListener('click', openSummaryDetail);
+    grid.appendChild(summaryTile);
+
     state.habits.forEach(function(h){
       var s = streakFor(h);
       var done = !!h.completions[today];
@@ -875,6 +957,60 @@
   }
 
   // ---------- detail modals ----------
+  function openSummaryDetail(){
+    var overlay = el('<div class="overlay"></div>');
+    var bestStreak = longestActiveStreak();
+    var modal = el(
+      '<div class="modal">'+
+      '<h2>Resumo</h2>'+
+      '<div class="stat-grid">'+
+        '<div class="stat-card wide"><div class="stat-label">Gasto do mês (todas as listas)</div><div class="stat-value"></div></div>'+
+        '<div class="stat-card"><div class="stat-label">Maior sequência</div><div class="stat-value" id="sStreak"></div></div>'+
+        '<div class="stat-card"><div class="stat-label">Rotinas na semana</div><div class="stat-value" id="sRoutines"></div></div>'+
+      '</div>'+
+      '<div id="sCharts"></div>'+
+      '<div class="actions"><button class="ghost" id="mClose">Fechar</button></div>'+
+      '</div>'
+    );
+    modal.querySelector('.stat-value').textContent = fmtBRL(totalSpendThisMonth());
+    modal.querySelector('#sStreak').textContent = bestStreak.streak > 0 ? (bestStreak.streak + 'd') : '—';
+    if(bestStreak.streak > 0){
+      var sub = document.createElement('div');
+      sub.style.cssText = 'font-size:11px;color:var(--ink-soft);margin-top:2px;';
+      sub.textContent = bestStreak.name;
+      modal.querySelector('#sStreak').parentNode.appendChild(sub);
+    }
+    modal.querySelector('#sRoutines').textContent = routinesWeeklyPercent() + '%';
+
+    var chartsWrap = modal.querySelector('#sCharts');
+    if(state.shoppingLists.length === 0){
+      chartsWrap.appendChild(el('<div class="hint" style="padding:6px 0;">Crie uma lista de compras pra acompanhar a tendência de gasto aqui.</div>'));
+    }
+    state.shoppingLists.forEach(function(l){
+      var series = listMonthSeries(l.id);
+      var max = Math.max.apply(null, series.totals.concat([1]));
+      var block = el('<div class="chart-block"><div class="chart-title"></div><div class="chart-row"></div></div>');
+      block.querySelector('.chart-title').textContent = l.name;
+      var row = block.querySelector('.chart-row');
+      series.keys.forEach(function(k, i){
+        var v = series.totals[i];
+        var pct = Math.max(2, Math.round(100 * v / max));
+        var isCurrent = (i === series.keys.length - 1);
+        var barWrap = el('<div class="chart-bar-wrap"><div class="chart-bar" style="height:'+pct+'%"></div><div class="chart-value"></div><div class="chart-label"></div></div>');
+        if(isCurrent) barWrap.querySelector('.chart-bar').classList.add('current');
+        barWrap.querySelector('.chart-value').textContent = v > 0 ? v.toFixed(0) : '';
+        barWrap.querySelector('.chart-label').textContent = monthLabel(k);
+        row.appendChild(barWrap);
+      });
+      chartsWrap.appendChild(block);
+    });
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.querySelector('#mClose').addEventListener('click', function(){ overlay.remove(); });
+    overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+  }
+
   function openHabitDetail(id){
     var h = state.habits.find(function(x){return x.id===id;});
     if(!h) return;
@@ -1226,6 +1362,15 @@
       '<p class="hint">Avisa no aparelho quando uma tarefa fica atrasada, ou quando um hábito/rotina do dia continua pendente após as 20h. Só funciona com o app hospedado em HTTPS (não abrindo o arquivo direto) e, no iPhone, com o app já adicionado à Tela de Início. Ative em cada aparelho separadamente.</p>'+
       '<button class="primary" id="pushEnableBtn">Ativar notificações neste aparelho</button>'+
       '<div class="status-line" id="pushStatus"></div>'+
+      '<hr style="border:none;border-top:1px solid var(--line);margin:18px 0;">'+
+      '<h2 style="font-size:16px;">Backup</h2>'+
+      '<p class="hint">Baixe um arquivo com todos os seus dados (hábitos, rotinas, tarefas, listas de compras e histórico de gastos), pra nunca depender só do Supabase. Restaurar substitui os dados atuais deste aparelho.</p>'+
+      '<div class="actions">'+
+        '<button class="ghost" id="backupExport">⬇️ Exportar backup</button>'+
+        '<button class="ghost" id="backupImport">⬆️ Restaurar backup</button>'+
+      '</div>'+
+      '<input type="file" id="backupFile" accept="application/json" style="display:none;">'+
+      '<div class="status-line" id="backupStatus"></div>'+
       '</div>'
     );
     overlay.appendChild(modal);
@@ -1250,6 +1395,41 @@
     });
 
     document.getElementById('pushEnableBtn').addEventListener('click', enablePush);
+
+    document.getElementById('backupExport').addEventListener('click', function(){
+      var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'rotina-backup-' + todayStr() + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      document.getElementById('backupStatus').textContent = 'Backup baixado ✓';
+    });
+
+    document.getElementById('backupImport').addEventListener('click', function(){
+      document.getElementById('backupFile').click();
+    });
+
+    document.getElementById('backupFile').addEventListener('change', function(e){
+      var file = e.target.files[0];
+      if(!file) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        var parsed;
+        try{ parsed = JSON.parse(reader.result); }
+        catch(err){ document.getElementById('backupStatus').textContent = 'Arquivo inválido.'; return; }
+        if(!confirm('Isso vai substituir todos os dados deste aparelho pelo conteúdo do backup. Continuar?')) return;
+        state = normalizeState(parsed);
+        saveLocal();
+        schedulePush();
+        render();
+        document.getElementById('backupStatus').textContent = 'Backup restaurado ✓';
+      };
+      reader.readAsText(file);
+    });
 
     document.getElementById('cfgSave').addEventListener('click', function(){
       var url = document.getElementById('cfgUrl').value.trim();
